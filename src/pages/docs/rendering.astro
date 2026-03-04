@@ -1,0 +1,222 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Rendering">
+  <p>
+    ArrowCrab renders everything on an HTML5 Canvas 2D context. There's no DOM
+    for graph elements; every node, edge, port, and label is a direct canvas
+    draw call.
+  </p>
+
+  <h2>Coordinate System</h2>
+  <p>
+    The layout algorithm works in <strong>grid units</strong> (GU). One grid
+    unit is 12 pixels (<code>GRID_UNIT = 12</code>). The viewport applies
+    translation and scale via <code>context.translate()</code> /
+    <code>context.scale()</code>, so drawing code doesn't deal with screen
+    coordinates.
+  </p>
+  <p>
+    This keeps layout math in small integers while the viewport handles
+    pixel-level precision for smooth pan and zoom.
+  </p>
+
+  <h2>Scene Object</h2>
+  <p>
+    A <code>GraphScene</code> holds everything for rendering and interaction:
+  </p>
+  <ul>
+    <li>Canvas 2D context</li>
+    <li>Graph model (nodes, scopes, adjacency)</li>
+    <li>Layout map (grid-unit positions, spatial index per scope)</li>
+    <li>Routing map (pixel waypoints per scope)</li>
+    <li>Expanded-node set (which compound nodes are open)</li>
+    <li>Viewport state (offset, scale)</li>
+    <li>Hit regions (toggle buttons, leaf nodes, expanded nodes, edges)</li>
+    <li>Selection and highlight sets</li>
+    <li>
+      Cached global adjacency (lazily built, invalidated on expansion changes)
+    </li>
+  </ul>
+
+  <h2>Viewport Culling</h2>
+  <p>
+    Before drawing, <code>render()</code> figures out which rectangle is visible
+    in graph-pixel coordinates. Each scope's spatial index (a grid-hash over
+    node bounding boxes, built once during layout) returns only the nodes that
+    overlap the visible area. Nodes outside the viewport don't get drawn, don't
+    get hit regions, and don't touch the canvas API.
+  </p>
+  <p>
+    Edges are culled the same way: the bounding box of each edge's waypoints
+    is checked against the visible rectangle.
+  </p>
+  <p>
+    This cuts per-frame work from O(N) to O(visible nodes). At typical zoom
+    levels only a few hundred of potentially thousands of nodes are on screen.
+  </p>
+
+  <h2>Level of Detail</h2>
+  <p>
+    Visible nodes are drawn at a detail level based on their screen-pixel size:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Screen width</th><th>Detail</th></tr>
+    </thead>
+    <tbody>
+      <tr
+        ><td>&gt; 40 px</td><td>Full: body, stroke, label, ID, toggle, ports</td
+        ></tr
+      >
+      <tr
+        ><td>8 to 40 px</td><td
+          >Simplified: filled rounded rect, stroke, no text or ports</td
+        ></tr
+      >
+      <tr><td>2 to 8 px</td><td>Dot: filled rectangle only</td></tr>
+      <tr><td>&lt; 2 px</td><td>Invisible: skipped entirely</td></tr>
+    </tbody>
+  </table>
+  <p>
+    Text rendering (especially <code>context.font</code> changes) is the most
+    expensive part of drawing. LOD skips it at zoom levels where you couldn't
+    read the text anyway.
+  </p>
+
+  <h2>Render Order</h2>
+  <p>Within each scope, rendering follows a fixed order:</p>
+  <ol>
+    <li>
+      <strong>Edges first.</strong> Routed polylines are drawn before nodes so that
+      nodes visually sit on top.
+    </li>
+    <li>
+      <strong>Nodes.</strong> For each node in the scope:
+      <ul>
+        <li>
+          Collapsed compound nodes and leaf nodes go through <code
+            >drawNode</code
+          >.
+        </li>
+        <li>
+          Expanded compound nodes render their background, label bar, ports,
+          then recursively render child subgraphs.
+        </li>
+      </ul>
+    </li>
+  </ol>
+  <p>
+    This way child content always paints on top of parent backgrounds, and edges
+    never cover node bodies.
+  </p>
+
+  <h2>Node Drawing</h2>
+  <p>
+    Each node is a rounded rectangle filled with its color and stroked with a
+    darkened variant. On top of that:
+  </p>
+  <ul>
+    <li>
+      <strong>Label</strong> - centered white text with a black stroke outline
+      so it's readable on any background.
+    </li>
+    <li>
+      <strong>ID badge</strong> - small monospace number outside the top-right
+      corner, for debugging.
+    </li>
+    <li>
+      <strong>Toggle button</strong> - <code>[+]</code>/<code
+        >[&minus;]</code
+      > in the top-left of compound nodes.
+    </li>
+    <li>
+      <strong>Ports</strong> - small circles on the top (inputs) and bottom
+      (outputs) edges, numbered.
+    </li>
+  </ul>
+  <p>
+    Ports draw last so they paint over the node border.
+  </p>
+
+  <h2>Edge Drawing</h2>
+  <p>
+    Edges are orthogonal polylines with rounded corners. <code>smoothPath()</code>
+    inserts quadratic B&eacute;zier curves at each waypoint to round the
+    90&deg; turns. Each edge ends with a triangular arrowhead.
+  </p>
+
+  <h3>Edge Colors</h3>
+  <p>
+    Edges use a <strong>golden-angle palette</strong>. Each edge index maps to
+    a hue:
+  </p>
+  <pre><code>hue = (0.58 + index * 0.618...) mod 1</code></pre>
+  <p>
+    The golden angle spaces successive colors as far apart as possible in hue
+    before any repeat. Saturation is low (18%) and lightness moderate (58%) so
+    the colors look muted and readable on the <code>#141414</code> background.
+  </p>
+
+  <h3>Crossing Markers</h3>
+  <p>
+    Where two edges cross, a small hollow circle is drawn so you can tell
+    whether paths are connected (they share a node) or just crossing (they share
+    a pixel).
+  </p>
+
+  <h2>Subgraph Frames</h2>
+  <p>
+    Expanded compound nodes show child subgraphs inside bordered frames. Each
+    frame is a rounded rectangle filled with <code>#141414</code> and stroked
+    with a darkened version of the parent node's color. Multiple subgraphs in
+    the same parent are separated by a thin vertical divider.
+  </p>
+  <p>
+    Boundary ports (entry/exit points) are circles on the top and bottom edges
+    of the frame, same style as regular node ports.
+  </p>
+
+  <h2>Text Rendering</h2>
+  <p>
+    All text goes through <code>outlinedText()</code>, which strokes behind the
+    fill (like SVG's <code>paint-order: stroke fill</code>) so labels are
+    readable on any node color.
+  </p>
+  <p>
+    To avoid redundant <code>context.font</code> assignments (one of the most
+    expensive Canvas 2D state changes), the current font, alignment, and baseline
+    are tracked at module level. Canvas state only updates when it actually
+    changes.
+  </p>
+
+  <h2>Visual Theme</h2>
+  <table>
+    <thead>
+      <tr><th>Element</th><th>Value</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Background</td><td><code>#141414</code></td></tr>
+      <tr><td>Text (primary)</td><td><code>#ffffff</code></td></tr>
+      <tr
+        ><td>Text (secondary)</td><td
+          ><code>#cccccc</code> / <code>#dddddd</code></td
+        ></tr
+      >
+      <tr><td>Node body</td><td>From JSON data (arbitrary CSS color)</td></tr>
+      <tr><td>Node stroke</td><td>30% darkened variant of body color</td></tr>
+      <tr><td>Port fill</td><td><code>#1c2030</code></td></tr>
+      <tr
+        ><td>Subgraph frame</td><td
+          ><code>#141414</code> fill, 10% darkened parent stroke</td
+        ></tr
+      >
+      <tr
+        ><td>Fonts</td><td
+          >System sans-serif for labels, monospace for IDs and ports</td
+        ></tr
+      >
+    </tbody>
+  </table>
+</DocsLayout>

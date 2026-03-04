@@ -1,0 +1,122 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Architecture Overview">
+  <p>
+    ArrowCrab is an interactive viewer for directed acyclic graphs (DAGs).
+    It draws computation graphs on an HTML5 canvas with automatic layout,
+    orthogonal edge routing, and pan/zoom/expand/collapse.
+  </p>
+
+  <h2>Design Goals</h2>
+  <ul>
+    <li>
+      <strong>Zero dependencies.</strong> Everything is built on the
+      Canvas 2D API with vanilla TypeScript. No UI framework.
+    </li>
+    <li>
+      <strong>Structural correctness.</strong> Nodes and edges share a single integer
+      grid, so edges can never cross through nodes. This is guaranteed by the grid
+      structure, not by collision checks.
+    </li>
+    <li>
+      <strong>Compound graphs.</strong> Nodes can contain subgraphs that expand
+      and collapse inline. Layout goes bottom-up so parent nodes size themselves
+      around their children.
+    </li>
+    <li>
+      <strong>Causal cones.</strong> Click a node to highlight all its ancestors
+      and descendants. Everything else dims so you can focus on the relevant
+      data flow.
+    </li>
+  </ul>
+
+  <h2>Tech Stack</h2>
+  <table>
+    <thead>
+      <tr><th>Layer</th><th>Technology</th><th>Rationale</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Site framework</td>
+        <td>Astro</td>
+        <td>Static-first, zero client JS by default, file-based routing</td>
+      </tr>
+      <tr>
+        <td>Language</td>
+        <td>TypeScript</td>
+        <td
+          >Type safety from wire format through model, layout, and render</td
+        >
+      </tr>
+      <tr>
+        <td>Rendering</td>
+        <td>Canvas 2D</td>
+        <td
+          >Direct pixel control, no DOM overhead, smooth pan/zoom</td
+        >
+      </tr>
+      <tr>
+        <td>Deployment</td>
+        <td>GitHub Pages</td>
+        <td>Free static hosting, one-click deploy via GitHub Actions</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>Module Map</h2>
+  <pre><code>src/
+  pages/
+    index.astro            Page shell: file picker, canvas, controls, event wiring
+    docs/                  This documentation
+
+  lib/
+    graph-types.ts         Type definitions (wire format + resolved model)
+    graph-model.ts         Deserialization and model construction
+    grid-layout.ts         Layer assignment, ordering, routing, coordinate calc
+    grid-types.ts          Grid data structures (LayoutGrid, PlacedNode, RoutingArea)
+    spatial-index.ts       Grid-hash spatial index for viewport culling and hit detection
+    renderer.ts            Scene management, render loop, viewport culling, LOD, selection
+    viewport.ts            Pan, zoom, keyboard, and touch interaction
+    canvas-constants.ts    Grid unit (12 px/GU) and all sizing constants
+    canvas-primitives.ts   Low-level canvas utilities (rounded rects, paths, text)
+    draw-node.ts           Node body, ports, toggle button
+    draw-edge.ts           Edge paths, arrowheads, crossing markers
+    draw-subgraph.ts       Subgraph frame, boundary ports
+    color-utils.ts         Hex/RGB/HSL conversion, color manipulation, edge palette</code></pre>
+
+  <h2>Data Pipeline</h2>
+  <p>Data goes through four stages:</p>
+  <pre><code>JSON file  ──&gt;  buildGraphModel()  ──&gt;  computeAllLayouts()  ──&gt;  computeAllRouting()  ──&gt;  render()
+  │                  │                       │                        │                     │
+  wire format     GraphModel              ScopeLayout map          ScopeRouting map      Canvas pixels
+  (flat arrays)   (nodeMap, scopeMap)     (grid-unit positions)    (pixel waypoints)     (draw calls)</code></pre>
+
+  <p>
+    Each stage is a pure function of the previous stage's output, so it's
+    easy to follow and test.
+  </p>
+
+  <h2>Why Canvas, Not SVG or DOM?</h2>
+  <p>
+    Computation graphs can have thousands of nodes and edges. SVG creates a DOM
+    element for each one, which gets slow when panning and zooming. Canvas draws
+    everything in one paint pass with no layout reflow. With viewport culling,
+    a spatial index, and level-of-detail rendering, only the visible part of the
+    graph gets drawn each frame, so it stays responsive even with huge graphs.
+    The downside is that hit testing has to be done manually (ArrowCrab tracks
+    rectangular regions for nodes and polyline proximity for edges), but it's
+    straightforward.
+  </p>
+
+  <h2>Why a Unified Grid?</h2>
+  <p>
+    Most graph layout libraries compute node positions and edge routes
+    separately with different coordinate systems. This makes it easy for edges
+    to clip through nodes, and you end up needing nudging or clipping heuristics
+    to fix it. ArrowCrab puts nodes and edges on the same sparse integer grid.
+    If a cell has a node in it, edges can't use it, and vice versa. So you get
+    <strong>no intersections by construction</strong>, not by collision detection.
+  </p>
+</DocsLayout>

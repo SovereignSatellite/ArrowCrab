@@ -1,0 +1,139 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Interaction">
+  <p>
+    ArrowCrab lets you navigate graphs with pan and zoom, open up compound nodes
+    with expand/collapse, and trace dependencies with causal cone highlighting.
+  </p>
+
+  <h2>Pan and Zoom</h2>
+  <p>
+    All viewport interaction is handled by <code>viewport.ts</code>, which
+    attaches a single <code>AbortController</code>-managed set of event
+    listeners to the canvas and window. Cleanup is a single
+    <code>abort()</code> call.
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Input</th><th>Action</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Click-drag</td><td>Pan</td></tr>
+      <tr><td>Scroll wheel</td><td>Zoom centered on cursor</td></tr>
+      <tr
+        ><td><code>+</code> / <code>=</code></td><td>Zoom in (canvas center)</td
+        ></tr
+      >
+      <tr><td><code>-</code></td><td>Zoom out (canvas center)</td></tr>
+      <tr><td><code>0</code></td><td>Fit graph to screen</td></tr>
+      <tr><td>Arrow keys</td><td>Pan by 50 px</td></tr>
+      <tr><td>Pinch (touch)</td><td>Zoom centered on pinch midpoint</td></tr>
+      <tr><td>Single-finger drag</td><td>Pan</td></tr>
+    </tbody>
+  </table>
+
+  <p>
+    Zoom range is 10% to 500%. Zoom is cursor-centered: the point under your
+    cursor stays put while the graph scales around it.
+  </p>
+
+  <h3>Click vs. Drag</h3>
+  <p>
+    Less than 5 pixels of movement between mousedown and mouseup counts as a
+    click. More than that is a drag. This prevents accidental selections when
+    you meant to pan.
+  </p>
+
+  <h2>Expand and Collapse</h2>
+  <p>
+    Compound nodes (nodes containing subgraphs) display a
+    <code>[+]</code>/<code>[&minus;]</code> toggle in their top-left corner. Clicking
+    it triggers <code>toggleNodeExpansion</code>, which:
+  </p>
+  <ol>
+    <li>Adds or removes the node from the expanded-node set.</li>
+    <li>Computes child scope layouts if expanding for the first time.</li>
+    <li>
+      Recomputes the layout chain upward to the top-level scope (since the
+      parent node's size changes).
+    </li>
+    <li>Recomputes all edge routing.</li>
+    <li>Re-renders.</li>
+  </ol>
+  <p>
+    Hit regions are recorded during each render pass for visible nodes only.
+    Since they're rebuilt every frame, they're always in sync with the current
+    viewport and layout.
+  </p>
+
+  <h2>Selection</h2>
+  <p>
+    Clicking a node or edge selects it. <code>Ctrl+click</code>
+    (or <code>Cmd+click</code> on macOS) adds to the selection without clearing it.
+    Clicking empty space clears all selections.
+  </p>
+
+  <h3>Hit Testing Priority</h3>
+  <p>When you click, hit regions are checked in this order:</p>
+  <ol>
+    <li>
+      <strong>Toggle buttons</strong> - highest priority, triggers expand/collapse.
+    </li>
+    <li><strong>Leaf nodes</strong> - rectangular hit test.</li>
+    <li>
+      <strong>Edges</strong> - polyline proximity check within 8 px.
+    </li>
+    <li>
+      <strong>Expanded nodes</strong> - checked last so edges and child nodes
+      inside them stay clickable.
+    </li>
+    <li><strong>Empty space</strong> - clears selection.</li>
+  </ol>
+  <p>
+    Expanded nodes are checked after edges on purpose. Clicking an edge inside
+    an expanded node selects the edge, not the container. The inside of an
+    expanded node is basically transparent to clicks until nothing else matches.
+  </p>
+
+  <h2>Causal Cone Highlighting</h2>
+  <p>
+    When you select nodes, ArrowCrab highlights their
+    <strong>causal cone</strong>: all ancestors and descendants reachable by
+    following edges in both directions. Everything outside the cone dims to 15%
+    opacity.
+  </p>
+  <p>
+    It runs BFS in both directions from the selected nodes over a global
+    adjacency map. Edges where both endpoints are reachable get highlighted too.
+    The adjacency map is cached and only rebuilt when the expansion state
+    changes, so repeated clicks are fast even on big graphs.
+  </p>
+  <p>
+    This lets you answer "what depends on X?" and "what does X depend on?" in
+    one click. Multi-selection (Ctrl+click) shows the union of all selected
+    nodes' cones.
+  </p>
+  <p>
+    Selecting an edge highlights it and both endpoints, merged into the causal
+    cone if nodes are also selected.
+  </p>
+
+  <h2>File Loading</h2>
+  <p>You can load JSON files two ways:</p>
+  <ul>
+    <li>
+      <strong>Drag and drop</strong> a <code>.json</code> file onto the landing zone.
+    </li>
+    <li>
+      <strong>Click to browse</strong> and pick a file.
+    </li>
+  </ul>
+  <p>
+    On load, it deserializes the JSON, builds the graph model, runs layout and
+    routing, and centers the viewport. The "Load JSON" button in the top-right
+    goes back to the file picker.
+  </p>
+</DocsLayout>

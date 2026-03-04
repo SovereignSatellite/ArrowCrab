@@ -1,0 +1,195 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Data Format">
+  <p>
+    ArrowCrab reads a JSON file that describes a directed acyclic graph. The
+    format is compact: arrays are flat-packed and strings are deduplicated
+    with a shared string table.
+  </p>
+
+  <h2>Wire Format</h2>
+  <pre><code>interface GraphData &#123;
+  subgraphs: number[];  // flat-packed, 3 fields per record
+  nodes:     number[];  // flat-packed, 3 fields per record
+  edges:     number[];  // flat-packed, 4 fields per record
+  strings:   string[];  // shared string table
+&#125;</code></pre>
+
+  <h3>Nodes</h3>
+  <p>
+    Every 3 consecutive entries in <code>nodes[]</code> form one record:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Offset</th><th>Field</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr
+        ><td><code>i+0</code></td><td>id</td><td>Globally unique integer ID</td
+        ></tr
+      >
+      <tr
+        ><td><code>i+1</code></td><td>label</td><td
+          >Index into <code>strings[]</code></td
+        ></tr
+      >
+      <tr
+        ><td><code>i+2</code></td><td>color</td><td
+          >Index into <code>strings[]</code> (CSS color)</td
+        ></tr
+      >
+    </tbody>
+  </table>
+
+  <h3>Edges</h3>
+  <p>
+    Every 4 consecutive entries in <code>edges[]</code> form one record:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Offset</th><th>Field</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>i+0</code></td><td>sourceId</td><td>Source node ID</td></tr>
+      <tr
+        ><td><code>i+1</code></td><td>sourcePort</td><td
+          >Output port index on source</td
+        ></tr
+      >
+      <tr><td><code>i+2</code></td><td>targetId</td><td>Target node ID</td></tr>
+      <tr
+        ><td><code>i+3</code></td><td>targetPort</td><td
+          >Input port index on target</td
+        ></tr
+      >
+    </tbody>
+  </table>
+
+  <h3>Subgraphs</h3>
+  <p>
+    Every 3 consecutive entries in <code>subgraphs[]</code> form one record:
+  </p>
+  <table>
+    <thead>
+      <tr><th>Offset</th><th>Field</th><th>Description</th></tr>
+    </thead>
+    <tbody>
+      <tr
+        ><td><code>i+0</code></td><td>nodeId</td><td
+          >The compound node that owns this subgraph</td
+        ></tr
+      >
+      <tr
+        ><td><code>i+1</code></td><td>inId</td><td
+          >Boundary marker: entry point of the subgraph</td
+        ></tr
+      >
+      <tr
+        ><td><code>i+2</code></td><td>outId</td><td
+          >Boundary marker: exit point of the subgraph</td
+        ></tr
+      >
+    </tbody>
+  </table>
+
+  <h3>Why Flat-Packed Arrays?</h3>
+  <p>
+    Flat arrays avoid per-record object overhead. Serializing thousands of
+    <code>&#123;"id": ..., "label": ...&#125;</code> objects means repeating every key
+    name. With flat arrays the parser just decodes numbers, and the deserializer
+    unpacks records in a tight loop.
+  </p>
+
+  <h3>Why a String Table?</h3>
+  <p>
+    Labels and color strings often repeat across nodes. A shared
+    <code>strings[]</code> array deduplicates them so each node just stores an
+    index. This makes the payload smaller and keeps deserialization simple.
+  </p>
+
+  <h2>Invariants</h2>
+  <ul>
+    <li>
+      All IDs are globally unique and topologically ordered (lower ID = earlier
+      in the DAG).
+    </li>
+    <li>
+      For every subgraph: <code>inId &lt; childId &lt; outId</code> for all children.
+    </li>
+    <li>
+      A subgraph's <code>nodeId</code> may equal its <code>inId</code> or <code
+        >outId</code
+      > (never both).
+    </li>
+  </ul>
+  <p>
+    Topological ordering matters because the deserializer can iterate nodes in
+    ID order knowing predecessors are already processed. It also lets scope
+    assignment use simple range checks (<code
+      >inId &lt; id &lt; outId</code
+    >) instead of explicit membership sets.
+  </p>
+
+  <hr />
+
+  <h2>In-Memory Model</h2>
+  <p>
+    <code>buildGraphModel</code> turns the wire format into a
+    <code>GraphModel</code> with two lookup tables:
+  </p>
+
+  <table>
+    <thead>
+      <tr><th>Structure</th><th>Key</th><th>Contents</th></tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><code>nodeMap</code></td>
+        <td>node ID</td>
+        <td>Label, color, port counts, scope assignment, child subgraph list</td
+        >
+      </tr>
+      <tr>
+        <td><code>scopeMap</code></td>
+        <td>scope ID</td>
+        <td
+          >Node membership, edges, adjacency maps, boundary info, parent node
+          reference</td
+        >
+      </tr>
+    </tbody>
+  </table>
+
+  <h3>Scope Resolution</h3>
+  <p>
+    Each node gets assigned to its <strong>innermost</strong> enclosing subgraph
+    scope using strict containment:
+    <code>inId &lt; nodeId &lt; outId</code>. Boundary IDs are excluded so
+    compound nodes stay in their parent scope instead of ending up inside their
+    own children.
+  </p>
+  <p>
+    Edges follow the same rule, except one endpoint can sit on a boundary
+    (which is how edges cross into or out of a subgraph).
+  </p>
+
+  <h3>Boundary Rewriting</h3>
+  <p>
+    When a subgraph boundary ID doesn't match its parent
+    <code>nodeId</code>, it's a virtual marker. The deserializer rewrites edges
+    in the parent scope that reference virtual boundaries to point at the parent
+    node instead. This way the layout algorithm can treat all edges the same
+    without special-casing boundary connections.
+  </p>
+
+  <h3>Port Count Inference</h3>
+  <p>
+    Port counts aren't stored in the data. They're inferred from edges.
+    Input port count for a node is <code>max(targetPort) + 1</code> across all
+    edges targeting it; output port count is <code>max(sourcePort) + 1</code
+    >. This keeps the wire format small and avoids mismatches between
+    declared and actual port usage.
+  </p>
+</DocsLayout>

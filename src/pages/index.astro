@@ -1,17 +1,418 @@
 ---
-
+const base = import.meta.env.BASE_URL;
 ---
 
 <html lang="en">
-	<head>
-		<meta charset="utf-8" />
-		<link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-		<link rel="icon" href="/favicon.ico" />
-		<meta name="viewport" content="width=device-width" />
-		<meta name="generator" content={Astro.generator} />
-		<title>Astro</title>
-	</head>
-	<body>
-		<h1>Astro</h1>
-	</body>
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href={`${base}/favicon.svg`} />
+    <link rel="icon" href={`${base}/favicon.ico`} />
+    <meta name="viewport" content="width=device-width" />
+    <meta name="generator" content={Astro.generator} />
+    <title>ArrowCrab</title>
+  </head>
+  <body>
+    <div id="drop-zone">
+      <p>Drop a <code>.json</code> graph file here, or click to browse</p>
+      <input type="file" id="file-input" accept=".json" />
+    </div>
+    <canvas id="graph-canvas"></canvas>
+    <button id="load-btn" class="hidden">Load JSON</button>
+
+    <div id="controls" class="hidden">
+      <div id="controls-row">
+        <button
+          id="zoom-out-btn"
+          class="control-btn"
+          aria-label="Zoom out (minus key)"
+          title="Zoom out (−)">−</button
+        >
+        <input
+          type="range"
+          id="zoom-slider"
+          min="10"
+          max="500"
+          value="100"
+          aria-label="Zoom level"
+        />
+        <button
+          id="zoom-in-btn"
+          class="control-btn"
+          aria-label="Zoom in (plus key)"
+          title="Zoom in (+)">+</button
+        >
+        <span id="zoom-label">100%</span>
+        <div class="control-divider"></div>
+        <button
+          id="fit-btn"
+          class="control-btn fit-btn"
+          aria-label="Fit graph to screen (0 key)"
+          title="Fit to screen (0)">Fit</button
+        >
+      </div>
+      <div id="controls-hint">
+        Scroll to zoom · Drag to pan · Arrow keys to pan
+      </div>
+    </div>
+
+    <script>
+      import { buildGraphModel } from "../lib/graph-model";
+      import type { GraphData } from "../lib/graph-types";
+      import type { GraphScene } from "../lib/renderer";
+      import {
+        createScene,
+        centerViewport,
+        render,
+        handleCanvasClick,
+      } from "../lib/renderer";
+      import { setupViewport, type ViewportControls } from "../lib/viewport";
+
+      const dropZone = document.getElementById("drop-zone")!;
+      const fileInput = document.getElementById(
+        "file-input",
+      ) as HTMLInputElement;
+      const canvas = document.getElementById(
+        "graph-canvas",
+      ) as HTMLCanvasElement;
+      const loadButton = document.getElementById("load-btn")!;
+      const controlsPanel = document.getElementById("controls")!;
+      const zoomSlider = document.getElementById(
+        "zoom-slider",
+      ) as HTMLInputElement;
+      const zoomLabel = document.getElementById("zoom-label")!;
+      const zoomInButton = document.getElementById("zoom-in-btn")!;
+      const zoomOutButton = document.getElementById("zoom-out-btn")!;
+      const fitButton = document.getElementById("fit-btn")!;
+
+      let activeScene: GraphScene | null = null;
+      let viewportControls: ViewportControls | null = null;
+
+      function resizeCanvas(): void {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+        if (activeScene) {
+          centerViewport(activeScene);
+          render(activeScene);
+          updateZoomDisplay();
+        }
+      }
+
+      function updateZoomDisplay(): void {
+        if (!viewportControls) {
+          return;
+        }
+        const percent = viewportControls.getZoomPercent();
+        zoomSlider.value = String(percent);
+        zoomLabel.textContent = `${percent}%`;
+      }
+
+      function loadGraph(json: string): void {
+        const data: GraphData = JSON.parse(json);
+        const model = buildGraphModel(data);
+
+        dropZone.classList.add("hidden");
+        canvas.classList.remove("hidden");
+        loadButton.classList.remove("hidden");
+        controlsPanel.classList.remove("hidden");
+
+        if (viewportControls) {
+          viewportControls.destroy();
+        }
+
+        const context = canvas.getContext("2d")!;
+        activeScene = createScene(context, model);
+        centerViewport(activeScene);
+
+        let renderPending = false;
+        function scheduleRender(): void {
+          if (!renderPending) {
+            renderPending = true;
+            requestAnimationFrame(() => {
+              renderPending = false;
+              if (activeScene) {
+                render(activeScene);
+              }
+            });
+          }
+        }
+
+        viewportControls = setupViewport(canvas, activeScene.viewport, {
+          onRender: scheduleRender,
+          onClick: (canvasX, canvasY, ctrlKey) => {
+            if (activeScene) {
+              handleCanvasClick(activeScene, canvasX, canvasY, ctrlKey);
+            }
+          },
+          onZoomChange: (percent) => {
+            zoomSlider.value = String(percent);
+            zoomLabel.textContent = `${percent}%`;
+          },
+          onFitToScreen: () => {
+            if (activeScene) {
+              centerViewport(activeScene);
+              render(activeScene);
+            }
+          },
+        });
+
+        render(activeScene);
+        updateZoomDisplay();
+      }
+
+      function handleFile(file: File): void {
+        file.text().then(loadGraph);
+      }
+
+      dropZone.addEventListener("click", () => fileInput.click());
+      fileInput.addEventListener("change", () => {
+        if (fileInput.files?.[0]) {
+          handleFile(fileInput.files[0]);
+        }
+      });
+
+      dropZone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        dropZone.classList.add("drag-over");
+      });
+      dropZone.addEventListener("dragleave", () => {
+        dropZone.classList.remove("drag-over");
+      });
+      dropZone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        dropZone.classList.remove("drag-over");
+        if (event.dataTransfer?.files[0]) {
+          handleFile(event.dataTransfer.files[0]);
+        }
+      });
+
+      zoomInButton.addEventListener("click", () => {
+        viewportControls?.zoomIn();
+      });
+      zoomOutButton.addEventListener("click", () => {
+        viewportControls?.zoomOut();
+      });
+      fitButton.addEventListener("click", () => {
+        viewportControls?.fitToScreen();
+      });
+      zoomSlider.addEventListener("input", () => {
+        viewportControls?.setZoomPercent(Number(zoomSlider.value));
+      });
+
+      loadButton.addEventListener("click", () => {
+        canvas.classList.add("hidden");
+        loadButton.classList.add("hidden");
+        controlsPanel.classList.add("hidden");
+        dropZone.classList.remove("hidden");
+        fileInput.value = "";
+        viewportControls?.destroy();
+        viewportControls = null;
+        activeScene = null;
+      });
+
+      window.addEventListener("resize", resizeCanvas);
+      resizeCanvas();
+    </script>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        background: #141414;
+        color: #ccc;
+        font-family: system-ui, sans-serif;
+        overflow: hidden;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      #drop-zone {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        border: 2px dashed #444;
+        border-radius: 12px;
+        margin: 40px;
+        transition: border-color 0.15s;
+      }
+
+      #drop-zone:hover,
+      #drop-zone.drag-over {
+        border-color: #888;
+      }
+
+      #drop-zone p {
+        font-size: 1.1rem;
+        pointer-events: none;
+      }
+
+      #drop-zone code {
+        color: #fff;
+      }
+
+      #file-input {
+        display: none;
+      }
+
+      #graph-canvas {
+        display: block;
+        width: 100vw;
+        height: 100vh;
+      }
+
+      #graph-canvas.hidden {
+        display: none;
+      }
+
+      #load-btn {
+        position: fixed;
+        top: 12px;
+        right: 12px;
+        padding: 6px 14px;
+        background: #2a2a2a;
+        color: #ccc;
+        border: 1px solid #555;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 0.85rem;
+      }
+
+      #load-btn:hover {
+        background: #3a3a3a;
+      }
+
+      #controls {
+        position: fixed;
+        bottom: 16px;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(26, 26, 26, 0.85);
+        backdrop-filter: blur(8px);
+        border: 1px solid #333;
+        border-radius: 10px;
+        padding: 8px 14px 6px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 4px;
+        user-select: none;
+        z-index: 10;
+      }
+
+      #controls-row {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+      }
+
+      #controls-hint {
+        font-size: 0.65rem;
+        color: #666;
+        letter-spacing: 0.02em;
+      }
+
+      .control-btn {
+        width: 28px;
+        height: 28px;
+        background: #2a2a2a;
+        color: #ccc;
+        border: 1px solid #444;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 1rem;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition:
+          background 0.1s,
+          border-color 0.1s;
+      }
+
+      .control-btn:hover {
+        background: #3a3a3a;
+        border-color: #666;
+      }
+
+      .control-btn:active {
+        background: #444;
+      }
+
+      .control-btn:focus-visible {
+        outline: 2px solid #6a9eff;
+        outline-offset: 1px;
+      }
+
+      .fit-btn {
+        width: auto;
+        padding: 0 10px;
+        font-size: 0.75rem;
+        font-weight: 500;
+      }
+
+      .control-divider {
+        width: 1px;
+        height: 18px;
+        background: #444;
+        margin: 0 2px;
+      }
+
+      #zoom-label {
+        font-size: 0.75rem;
+        color: #999;
+        min-width: 36px;
+        text-align: center;
+        font-variant-numeric: tabular-nums;
+      }
+
+      #zoom-slider {
+        width: 100px;
+        height: 4px;
+        appearance: none;
+        background: #333;
+        border-radius: 2px;
+        outline: none;
+        cursor: pointer;
+      }
+
+      #zoom-slider::-webkit-slider-thumb {
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        background: #888;
+        border: 1px solid #555;
+        border-radius: 50%;
+        cursor: pointer;
+        transition: background 0.1s;
+      }
+
+      #zoom-slider::-webkit-slider-thumb:hover {
+        background: #aaa;
+      }
+
+      #zoom-slider::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        background: #888;
+        border: 1px solid #555;
+        border-radius: 50%;
+        cursor: pointer;
+      }
+
+      #zoom-slider:focus-visible {
+        outline: 2px solid #6a9eff;
+        outline-offset: 2px;
+        border-radius: 4px;
+      }
+
+      .hidden {
+        display: none !important;
+      }
+    </style>
+  </body>
 </html>

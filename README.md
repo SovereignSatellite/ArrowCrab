@@ -1,43 +1,49 @@
-# Astro Starter Kit: Minimal
+# ArrowCrab
 
-```sh
-npm create astro@latest -- --template minimal
+An interactive viewer for directed acyclic graphs (DAGs). Drop in a JSON file and explore your computation graph with pan, zoom, expand/collapse, and causal cone highlighting.
+
+## What It Does
+
+ArrowCrab takes a JSON graph and renders it as an interactive diagram:
+
+- **Automatic layout** - nodes are arranged in layers with edges routed between them. No manual positioning.
+- **Compound nodes** - nodes can contain sub-graphs. Click `[+]` to expand, `[−]` to collapse.
+- **Causal cones** - click a node to highlight everything it depends on and everything that depends on it. The rest dims out.
+- **Navigation** - drag to pan, scroll to zoom (zooms at your cursor), keyboard shortcuts, pinch-to-zoom on touch.
+
+## How to Use
+
+1. **Load a graph** - drag and drop a `.json` file, or click to browse.
+2. **Navigate** - drag to pan, scroll to zoom, press `0` to fit the whole graph on screen.
+3. **Explore compound nodes** - click `[+]` on nodes with sub-graphs to expand them.
+4. **Trace dependencies** - click a node to see its causal cone. Ctrl+click to select multiple nodes and see the combined cone.
+5. **Click edges** - edges are clickable too. Click one to highlight it and its endpoints.
+6. **Reset** - click "Load JSON" in the top-right to go back to the file picker.
+
+### Keyboard Shortcuts
+
+| Key        | Action        |
+| ---------- | ------------- |
+| Arrow keys | Pan           |
+| `+` / `=`  | Zoom in       |
+| `-`        | Zoom out      |
+| `0`        | Fit to screen |
+
+## JSON Format
+
+The viewer expects a JSON file with this structure:
+
+```json
+{
+  "subgraphs": [nodeId, inId, outId, ...],
+  "nodes": [id, labelIndex, colorIndex, ...],
+  "edges": [sourceId, sourcePort, targetId, targetPort, ...],
+  "strings": ["label1", "#ff6644", ...]
+}
 ```
 
-> 🧑‍🚀 **Seasoned astronaut?** Delete this file. Have fun!
+Arrays are flat-packed for compactness. Node labels and colors are indices into the shared `strings` array. See the [technical docs](/docs/data-format/) for the full spec.
 
-## 🚀 Project Structure
+## Documentation
 
-Inside of your Astro project, you'll see the following folders and files:
-
-```text
-/
-├── public/
-├── src/
-│   └── pages/
-│       └── index.astro
-└── package.json
-```
-
-Astro looks for `.astro` or `.md` files in the `src/pages/` directory. Each page is exposed as a route based on its file name.
-
-There's nothing special about `src/components/`, but that's where we like to put any Astro/React/Vue/Svelte/Preact components.
-
-Any static assets, like images, can be placed in the `public/` directory.
-
-## 🧞 Commands
-
-All commands are run from the root of the project, from a terminal:
-
-| Command                   | Action                                           |
-| :------------------------ | :----------------------------------------------- |
-| `npm install`             | Installs dependencies                            |
-| `npm run dev`             | Starts local dev server at `localhost:4321`      |
-| `npm run build`           | Build your production site to `./dist/`          |
-| `npm run preview`         | Preview your build locally, before deploying     |
-| `npm run astro ...`       | Run CLI commands like `astro add`, `astro check` |
-| `npm run astro -- --help` | Get help using the Astro CLI                     |
-
-## 👀 Want to learn more?
-
-Feel free to check [our documentation](https://docs.astro.build) or jump into our [Discord server](https://astro.build/chat).
+Docs covering architecture, data format, layout algorithm, rendering, and interaction are at [`/docs/`](/docs/) when running the site.

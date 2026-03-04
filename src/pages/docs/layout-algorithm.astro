@@ -1,0 +1,273 @@
+---
+import DocsLayout from "../../layouts/DocsLayout.astro";
+---
+
+<DocsLayout title="Layout Algorithm">
+  <p>
+    ArrowCrab uses a variant of
+    <strong>Sugiyama layered graph drawing</strong> with orthogonal edge
+    routing on a unified integer grid. Nodes and edges share the same coordinate
+    system, so edges can't cross through nodes.<sup><a href="#fn1">1</a></sup>
+  </p>
+
+  <h2>Phase 1: Layer Assignment</h2>
+  <p>
+    Each node gets a horizontal layer using <strong
+      >as-late-as-possible (ALAP)</strong
+    > scheduling. The algorithm walks nodes in reverse topological order and
+    computes each node's distance to the nearest sink. Nodes go at layer <code
+      >maxDepth - distanceToSink</code
+    >.
+  </p>
+  <p>
+    ALAP over ASAP because it keeps connected nodes closer together, which
+    means fewer long edges that need vertical lane reservations.
+  </p>
+
+  <h3>Inputs and Outputs</h3>
+  <table>
+    <thead><tr><th></th><th>Type</th><th>Description</th></tr></thead>
+    <tbody>
+      <tr
+        ><td>Input</td><td>Node IDs + successor adjacency</td><td
+          >The scope's DAG structure</td
+        ></tr
+      >
+      <tr
+        ><td>Output</td><td><code>layers: number[][]</code></td><td
+          >Nodes grouped by layer</td
+        ></tr
+      >
+      <tr
+        ><td>Output</td><td><code>layerOf: Map</code></td><td
+          >Reverse lookup: node &rarr; layer</td
+        ></tr
+      >
+    </tbody>
+  </table>
+
+  <h2>Phase 2: Ordering Within Layers</h2>
+  <p>
+    Minimizes edge crossings with a <strong
+      >two-pass barycenter heuristic</strong
+    >:
+  </p>
+  <ol>
+    <li>
+      <strong>Forward pass</strong> (top to bottom): sort each layer by the average
+      position of its predecessors in the layer above.
+    </li>
+    <li>
+      <strong>Backward pass</strong> (bottom to top): sort each layer by the average
+      position of its successors in the layer below.
+    </li>
+  </ol>
+  <p>
+    This is a standard O(n) heuristic that removes most crossings in one
+    forward+backward sweep. A single iteration is enough for the graph sizes
+    ArrowCrab handles.
+  </p>
+
+  <h2>Phase 3: Routing Area Sizing</h2>
+  <p>
+    Between every pair of adjacent layers (and above the first / below the
+    last), the algorithm reserves a <strong>routing area</strong>, which is a
+    horizontal band of grid rows for edge lanes. The height of each routing area
+    depends on how many edges need a horizontal turn there:
+  </p>
+  <pre><code>height = max(MIN_CHANNEL_SIZE, ROUTING_PADDING + edgeCount * LANE_SPACING + ROUTING_PADDING)</code></pre>
+  <p>
+    This makes sure there are always enough rows for edges to route without
+    overlapping, while keeping gaps small where few edges cross.
+  </p>
+
+  <h2>Phase 4: Grid Construction and Node Placement</h2>
+  <p>
+    A sparse grid (<code>LayoutGrid</code>) is constructed with dual storage:
+    node occupancy is recorded as axis-aligned rectangles in a <code
+      >NodeRect[]</code
+    >
+    array (O(1) per node regardless of area), while routing lane marks use a
+    <code>Map&lt;number, CellOccupant&gt;</code> with
+    <code>col * ROW_MULTIPLIER + row</code> keys (where <code
+      >ROW_MULTIPLIER</code
+    >
+    is <code>floor(sqrt(MAX_SAFE_INTEGER))</code>). Layers and routing areas
+    interleave:
+  </p>
+  <pre><code>[routing area 0]      horizontal edge lanes
+[layer 0 nodes]       nodes placed left to right
+[routing area 1]      horizontal edge lanes
+[layer 1 nodes]
+...
+[routing area N]      final horizontal edge lanes</code></pre>
+  <p>
+    Within each layer, nodes are placed left to right with horizontal gaps sized
+    to accommodate vertical edge lanes between them. All node cells are marked
+    as occupied on the grid. Node widths are computed from the maximum of: port
+    count, label width, and <code>MIN_NODE_WIDTH</code>.
+  </p>
+
+  <h2>Phase 5: Edge Routing</h2>
+  <p>
+    Edges are processed <strong>longest first</strong> (more layers spanned means
+    higher priority for lane picks). Each edge becomes an orthogonal polyline:
+  </p>
+
+  <h3>Short Edge (Adjacent Layers)</h3>
+  <pre><code>source port &rarr; down to horizontal lane &rarr; across to target column &rarr; down to target port</code></pre>
+  <p>4 waypoints.</p>
+
+  <h3>Long Edge (2+ Layers)</h3>
+  <pre><code>source port &rarr; down to horizontal lane &rarr; across to vertical lane
+&rarr; down through intermediate layers &rarr; across to target column &rarr; down to target port</code></pre>
+  <p>6 waypoints.</p>
+
+  <h3>Lane Selection</h3>
+  <p>
+    Horizontal lanes are assigned sequentially with a per-area counter, so each
+    edge gets its own row in the routing area.
+    <code>findUnusedVerticalLane</code> scans columns outward from the midpoint between
+    source and target looking for a free vertical span. Each used cell gets
+    marked occupied so later edges skip it.
+  </p>
+  <p>
+    Long edges go first because they need vertical lanes spanning many rows,
+    which makes them hardest to place. Giving them first pick leads to cleaner
+    layouts.
+  </p>
+
+  <h3>Crossing Detection</h3>
+  <p>
+    After routing, the algorithm finds where edge segments cross. Since all
+    edges are orthogonal, crossings only happen between horizontal and vertical
+    segments. It collects all H and V segments, sorts verticals by x, then for
+    each horizontal segment binary-searches for verticals in its x-range and
+    checks y-overlap. This is O((S + K) log S) where S is segments and K is
+    crossings, instead of O(E&sup2;) brute-force. The renderer draws a small
+    hollow circle at each crossing so you can tell overlapping paths from
+    connected ones.
+  </p>
+
+  <h2>Phase 6: Pixel Conversion</h2>
+  <p>
+    Grid-unit coordinates become pixel coordinates by multiplying by <code
+      >GRID_UNIT</code
+    > (12 px). For nested scopes, absolute pixel offsets from the parent are
+    applied during routing, not layout. This keeps each scope's layout
+    independent.
+  </p>
+
+  <hr />
+
+  <h2>Compound Nodes</h2>
+  <p>
+    Expanded compound nodes contain child subgraph scopes. Layout goes
+    <strong>bottom-up</strong>: deepest scopes first, then parent node sizes
+    come from child grid sizes:
+  </p>
+  <pre><code>width  = max(leafWidth, sum(childWidths) + separators + padding)
+height = max(childHeights) + LABEL_BAR_HEIGHT + NODE_INNER_GAP * 2</code></pre>
+  <p>
+    Collapsed compound nodes shrink to standard leaf node size. Expanded ones
+    show the full child layout inside, and the parent scope re-layouts to fit.
+  </p>
+
+  <h2>Grid-Aligned Ports</h2>
+  <p>
+    Ports are placed at <strong>integer grid coordinates</strong>:
+  </p>
+  <pre><code>port i &rarr; PORT_SPACING * i + PORT_SPACING / 2 = 2i + 1</code></pre>
+  <p>
+    This gives positions 1, 3, 5, 7, ... relative to the node's left column.
+    Since ports are on the same grid as edges, routing lanes connect to ports
+    without fractional offsets. Node width is at least
+    <code>max(portCountIn, portCountOut) * PORT_SPACING</code> to fit all ports.
+  </p>
+  <p>
+    <strong>Boundary ports</strong> (scope entry/exit points) are different: they use
+    centered proportional spacing across the full frame width, since the frame
+    can be much wider than the port count needs.
+  </p>
+
+  <hr />
+
+  <h2>Key Invariants</h2>
+  <ol>
+    <li>
+      <strong>No edge-node intersection.</strong> Node cells are marked occupied before
+      routing. Lane-finding functions only return unoccupied cells.
+    </li>
+    <li>
+      <strong>No edge-edge overlap.</strong> Each lane cell is marked used after assignment.
+      Subsequent edges skip occupied cells.
+    </li>
+    <li>
+      <strong>Grid alignment.</strong> All positions and waypoints sit at integer
+      grid-unit coordinates.
+    </li>
+    <li>
+      <strong>Routing area sufficiency.</strong> Each routing area has at least as
+      many lane rows as edges crossing that gap.
+    </li>
+    <li>
+      <strong>Bottom-up compound sizing.</strong> Child scope grids are computed before
+      parent scopes, so parent node dimensions are always correct.
+    </li>
+  </ol>
+
+  <h2>Constants Reference</h2>
+  <table>
+    <thead>
+      <tr><th>Name</th><th>Value</th><th>Unit</th><th>Purpose</th></tr>
+    </thead>
+    <tbody>
+      <tr
+        ><td><code>GRID_UNIT</code></td><td>12</td><td>px</td><td
+          >Pixels per grid unit</td
+        ></tr
+      >
+      <tr
+        ><td><code>NODE_HORIZONTAL_PADDING</code></td><td>2</td><td>GU</td><td
+          >Padding on each side of a node</td
+        ></tr
+      >
+      <tr
+        ><td><code>ROUTING_PADDING</code></td><td>1</td><td>GU</td><td
+          >Padding above/below lane area</td
+        ></tr
+      >
+      <tr
+        ><td><code>MIN_CHANNEL_SIZE</code></td><td>3</td><td>GU</td><td
+          >Minimum routing area height</td
+        ></tr
+      >
+      <tr
+        ><td><code>LANE_SPACING</code></td><td>1</td><td>GU</td><td
+          >Distance between lane rows</td
+        ></tr
+      >
+      <tr
+        ><td><code>PORT_SPACING</code></td><td>2</td><td>GU</td><td
+          >Distance between port centers</td
+        ></tr
+      >
+      <tr
+        ><td><code>MIN_NODE_WIDTH</code></td><td>4</td><td>GU</td><td
+          >Minimum node width</td
+        ></tr
+      >
+      <tr
+        ><td><code>LEAF_NODE_HEIGHT</code></td><td>3</td><td>GU</td><td
+          >Height of leaf nodes</td
+        ></tr
+      >
+    </tbody>
+  </table>
+
+  <hr />
+  <p id="fn1" style="font-size: 0.85em; color: #999;">
+    <sup>1</sup> Some refinements were informed by "Method for Orthogonal Edge Routing of Directed Layered
+    Graphs with Edge Crossings Reduction" (2021).
+  </p>
+</DocsLayout>
