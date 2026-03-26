@@ -61,11 +61,11 @@ function unpackEdges(packed: number[]): RawEdge[] {
 // inId < minId, then scan backward through candidates. This reduces O(N*S) to
 // O(N*log S) during model building.
 function findInnermostScope(
-  idA: number,
-  idB: number,
+  firstId: number,
+  secondId: number,
   scopes: Scope[],
 ): string | null {
-  const minId = Math.min(idA, idB);
+  const minId = Math.min(firstId, secondId);
 
   // Binary search: find the rightmost scope with inId <= minId.
   // We use <= because an edge endpoint can sit ON a boundary (inId or outId),
@@ -93,14 +93,16 @@ function findInnermostScope(
       continue;
     }
 
-    const aInside = scope.inId! < idA && idA < scope.outId!;
-    const bInside = scope.inId! < idB && idB < scope.outId!;
-    const aOnBoundary = idA === scope.inId || idA === scope.outId;
-    const bOnBoundary = idB === scope.inId || idB === scope.outId;
+    const isFirstInside = scope.inId! < firstId && firstId < scope.outId!;
+    const isSecondInside = scope.inId! < secondId && secondId < scope.outId!;
+    const isFirstOnBoundary = firstId === scope.inId || firstId === scope.outId;
+    const isSecondOnBoundary =
+      secondId === scope.inId || secondId === scope.outId;
 
-    const belongs =
-      (aInside && (bInside || bOnBoundary)) || (bInside && aOnBoundary);
-    if (!belongs) {
+    const isContained =
+      (isFirstInside && (isSecondInside || isSecondOnBoundary)) ||
+      (isSecondInside && isFirstOnBoundary);
+    if (!isContained) {
       continue;
     }
 

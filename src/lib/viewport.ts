@@ -130,9 +130,12 @@ export function setupViewport(
         return;
       }
       if (!isDragging) {
-        const dx = event.clientX - mouseDownX;
-        const dy = event.clientY - mouseDownY;
-        if (dx * dx + dy * dy <= PAN_CLICK_THRESHOLD * PAN_CLICK_THRESHOLD) {
+        const deltaX = event.clientX - mouseDownX;
+        const deltaY = event.clientY - mouseDownY;
+        if (
+          deltaX * deltaX + deltaY * deltaY <=
+          PAN_CLICK_THRESHOLD * PAN_CLICK_THRESHOLD
+        ) {
           return;
         }
         isDragging = true;

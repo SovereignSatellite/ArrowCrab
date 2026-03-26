@@ -205,20 +205,20 @@ function computeRoutingAreaHeights(
   const edgesPerArea = new Array<number>(areaCount).fill(0);
 
   for (const edge of edges) {
-    const srcLayer = layerOf.get(edge.sourceId) ?? -1;
-    const tgtLayer = layerOf.get(edge.targetId) ?? -1;
+    const sourceLayer = layerOf.get(edge.sourceId) ?? -1;
+    const targetLayer = layerOf.get(edge.targetId) ?? -1;
 
     // Each edge needs a horizontal lane in the area below its source layer
-    const srcArea = srcLayer + 1;
-    if (srcArea >= 0 && srcArea < areaCount) {
-      edgesPerArea[srcArea] += 1;
+    const sourceArea = sourceLayer + 1;
+    if (sourceArea >= 0 && sourceArea < areaCount) {
+      edgesPerArea[sourceArea] += 1;
     }
 
     // Long edges also need a horizontal lane in the area above their target layer
-    if (tgtLayer > srcLayer + 1) {
-      const tgtArea = tgtLayer;
-      if (tgtArea >= 0 && tgtArea < areaCount) {
-        edgesPerArea[tgtArea] += 1;
+    if (targetLayer > sourceLayer + 1) {
+      const targetArea = targetLayer;
+      if (targetArea >= 0 && targetArea < areaCount) {
+        edgesPerArea[targetArea] += 1;
       }
     }
   }
@@ -434,10 +434,10 @@ function markVerticalLane(
 function deduplicateWaypoints(waypoints: Point[]): Point[] {
   const cleaned: Point[] = [waypoints[0]];
   for (let i = 1; i < waypoints.length; i += 1) {
-    const prev = cleaned[cleaned.length - 1];
+    const previous = cleaned[cleaned.length - 1];
     if (
-      Math.abs(waypoints[i].x - prev.x) > 0.1 ||
-      Math.abs(waypoints[i].y - prev.y) > 0.1
+      Math.abs(waypoints[i].x - previous.x) > 0.1 ||
+      Math.abs(waypoints[i].y - previous.y) > 0.1
     ) {
       cleaned.push(waypoints[i]);
     }
@@ -519,37 +519,37 @@ class EdgeRouter {
     const results: RoutedEdge[] = [];
     for (let i = 0; i < sortedEdges.length; i += 1) {
       const edge = sortedEdges[i];
-      const srcNode = this.effectivePlaced.get(edge.sourceId);
-      const tgtNode = this.effectivePlaced.get(edge.targetId);
-      if (!srcNode || !tgtNode) {
+      const sourceNode = this.effectivePlaced.get(edge.sourceId);
+      const targetNode = this.effectivePlaced.get(edge.targetId);
+      if (!sourceNode || !targetNode) {
         continue;
       }
 
-      const srcLayer = this.effectiveLayerOf.get(edge.sourceId) ?? 0;
-      const tgtLayer = this.effectiveLayerOf.get(edge.targetId) ?? 0;
+      const sourceLayer = this.effectiveLayerOf.get(edge.sourceId) ?? 0;
+      const targetLayer = this.effectiveLayerOf.get(edge.targetId) ?? 0;
       const source = this.computePortEndpoint(
         edge.sourceId,
         edge.sourcePort,
-        srcNode,
+        sourceNode,
         "out",
       );
       const target = this.computePortEndpoint(
         edge.targetId,
         edge.targetPort,
-        tgtNode,
+        targetNode,
         "in",
       );
 
       let waypoints: Point[];
-      if (tgtLayer <= srcLayer + 1) {
-        waypoints = this.routeShortEdge(edge, source, target, srcLayer);
+      if (targetLayer <= sourceLayer + 1) {
+        waypoints = this.routeShortEdge(edge, source, target, sourceLayer);
       } else {
         waypoints = this.routeLongEdge(
           edge,
           source,
           target,
-          srcLayer,
-          tgtLayer,
+          sourceLayer,
+          targetLayer,
         );
       }
 
@@ -782,17 +782,17 @@ function detectCrossings(routedEdges: RoutedEdge[]): Point[] {
   for (let i = 0; i < routedEdges.length; i += 1) {
     const points = routedEdges[i].waypoints;
     for (let j = 0; j < points.length - 1; j += 1) {
-      const seg: ClassifiedSegment = {
+      const segment: ClassifiedSegment = {
         x1: points[j].x,
         y1: points[j].y,
         x2: points[j + 1].x,
         y2: points[j + 1].y,
         edgeIndex: i,
       };
-      if (Math.abs(seg.y1 - seg.y2) < 0.1) {
-        horizontals.push(seg);
-      } else if (Math.abs(seg.x1 - seg.x2) < 0.1) {
-        verticals.push(seg);
+      if (Math.abs(segment.y1 - segment.y2) < 0.1) {
+        horizontals.push(segment);
+      } else if (Math.abs(segment.x1 - segment.x2) < 0.1) {
+        verticals.push(segment);
       }
     }
   }
@@ -804,15 +804,15 @@ function detectCrossings(routedEdges: RoutedEdge[]): Point[] {
   const epsilon = 1;
 
   for (const horizontal of horizontals) {
-    const hY = horizontal.y1;
-    const hMinX = Math.min(horizontal.x1, horizontal.x2) + epsilon;
-    const hMaxX = Math.max(horizontal.x1, horizontal.x2) - epsilon;
+    const horizontalY = horizontal.y1;
+    const horizontalMinX = Math.min(horizontal.x1, horizontal.x2) + epsilon;
+    const horizontalMaxX = Math.max(horizontal.x1, horizontal.x2) - epsilon;
 
     let low = 0;
     let high = verticals.length;
     while (low < high) {
       const mid = (low + high) >> 1;
-      if (verticals[mid].x1 <= hMinX) {
+      if (verticals[mid].x1 <= horizontalMinX) {
         low = mid + 1;
       } else {
         high = mid;
@@ -821,17 +821,17 @@ function detectCrossings(routedEdges: RoutedEdge[]): Point[] {
 
     for (let k = low; k < verticals.length; k += 1) {
       const vertical = verticals[k];
-      if (vertical.x1 >= hMaxX) {
+      if (vertical.x1 >= horizontalMaxX) {
         break;
       }
       if (vertical.edgeIndex === horizontal.edgeIndex) {
         continue;
       }
 
-      const vMinY = Math.min(vertical.y1, vertical.y2) + epsilon;
-      const vMaxY = Math.max(vertical.y1, vertical.y2) - epsilon;
-      if (hY > vMinY && hY < vMaxY) {
-        crossings.push({ x: vertical.x1, y: hY });
+      const verticalMinY = Math.min(vertical.y1, vertical.y2) + epsilon;
+      const verticalMaxY = Math.max(vertical.y1, vertical.y2) - epsilon;
+      if (horizontalY > verticalMinY && horizontalY < verticalMaxY) {
+        crossings.push({ x: vertical.x1, y: horizontalY });
       }
     }
   }
@@ -862,7 +862,6 @@ function computeScopeLayout(
     };
   }
 
-  // Compute node sizes
   const nodeWidths = new Map<number, number>();
   const nodeHeights = new Map<number, number>();
   for (const nodeId of scope.nodeIds) {
@@ -904,7 +903,6 @@ function computeScopeLayout(
     scope.edges,
   );
 
-  // Convert to public types
   const nodePositions = new Map<number, NodePosition>();
   for (const [id, placed] of placement.placedNodes) {
     nodePositions.set(id, {
