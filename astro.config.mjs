@@ -3,6 +3,6 @@ import { defineConfig } from "astro/config";
 
 // https://astro.build/config
 export default defineConfig({
-    site: "https://sovereignsatellite.github.io",
-    base: "/ArrowCrab",
+  site: "https://sovereignsatellite.github.io",
+  base: "/ArrowCrab",
 });

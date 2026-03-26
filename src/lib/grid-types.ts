@@ -74,8 +74,8 @@ export class LayoutGrid {
 
   /** Check if an entire column range is free of nodes and lanes (inclusive). */
   isColumnFree(col: number, rowStart: number, rowEnd: number): boolean {
-    for (let r = rowStart; r <= rowEnd; r += 1) {
-      if (this.lanes.has(gridKey(col, r))) {
+    for (let row = rowStart; row <= rowEnd; row += 1) {
+      if (this.lanes.has(gridKey(col, row))) {
         return false;
       }
     }
