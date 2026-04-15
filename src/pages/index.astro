@@ -74,6 +74,7 @@ const base = import.meta.env.BASE_URL;
       const canvas = document.getElementById(
         "graph-canvas",
       ) as HTMLCanvasElement;
+      const context = canvas.getContext("2d")!;
       const loadButton = document.getElementById("load-btn")!;
       const controlsPanel = document.getElementById("controls")!;
       const zoomSlider = document.getElementById(
@@ -88,8 +89,10 @@ const base = import.meta.env.BASE_URL;
       let viewportControls: ViewportControls | null = null;
 
       function resizeCanvas(): void {
-        canvas.width = window.innerWidth;
-        canvas.height = window.innerHeight;
+        const pixelRatio = window.devicePixelRatio || 1;
+        canvas.width = canvas.clientWidth * pixelRatio;
+        canvas.height = canvas.clientHeight * pixelRatio;
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
         if (activeScene) {
           centerViewport(activeScene);
           render(activeScene);
@@ -119,7 +122,6 @@ const base = import.meta.env.BASE_URL;
           viewportControls.destroy();
         }
 
-        const context = canvas.getContext("2d")!;
         activeScene = createScene(context, model);
         centerViewport(activeScene);
 
