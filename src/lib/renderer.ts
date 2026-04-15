@@ -112,8 +112,8 @@ export function centerViewport(scene: GraphScene): void {
   const canvas = scene.context.canvas;
 
   const padding = 60;
-  const availableWidth = canvas.width - 2 * padding;
-  const availableHeight = canvas.height - 2 * padding;
+  const availableWidth = canvas.clientWidth - 2 * padding;
+  const availableHeight = canvas.clientHeight - 2 * padding;
 
   const scale = Math.min(
     1.5,
@@ -127,8 +127,8 @@ export function centerViewport(scene: GraphScene): void {
   );
 
   scene.viewport.scale = scale;
-  scene.viewport.offsetX = (canvas.width - graphPixelWidth * scale) / 2;
-  scene.viewport.offsetY = (canvas.height - graphPixelHeight * scale) / 2;
+  scene.viewport.offsetX = (canvas.clientWidth - graphPixelWidth * scale) / 2;
+  scene.viewport.offsetY = (canvas.clientHeight - graphPixelHeight * scale) / 2;
 }
 
 /** Visible rectangle in graph pixel coordinates. */
@@ -148,7 +148,7 @@ export function render(scene: GraphScene): void {
   const { context, viewport } = scene;
   const canvas = context.canvas;
 
-  context.clearRect(0, 0, canvas.width, canvas.height);
+  context.clearRect(0, 0, canvas.clientWidth, canvas.clientHeight);
   resetTextState();
 
   context.save();
@@ -159,8 +159,8 @@ export function render(scene: GraphScene): void {
   const visibleRect: VisibleRect = {
     left: -viewport.offsetX / viewport.scale,
     top: -viewport.offsetY / viewport.scale,
-    right: (-viewport.offsetX + canvas.width) / viewport.scale,
-    bottom: (-viewport.offsetY + canvas.height) / viewport.scale,
+    right: (-viewport.offsetX + canvas.clientWidth) / viewport.scale,
+    bottom: (-viewport.offsetY + canvas.clientHeight) / viewport.scale,
   };
 
   scene.toggleRegions = [];

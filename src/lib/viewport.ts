@@ -73,13 +73,13 @@ export function setupViewport(
   }
 
   function zoomAtCanvasCenter(factor: number): void {
-    zoomAtPoint(factor, canvas.width / 2, canvas.height / 2);
+    zoomAtPoint(factor, canvas.clientWidth / 2, canvas.clientHeight / 2);
   }
 
   function setAbsoluteScale(newScale: number): void {
     const clamped = clampScale(newScale);
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
+    const centerX = canvas.clientWidth / 2;
+    const centerY = canvas.clientHeight / 2;
     viewport.offsetX =
       centerX - (centerX - viewport.offsetX) * (clamped / viewport.scale);
     viewport.offsetY =
