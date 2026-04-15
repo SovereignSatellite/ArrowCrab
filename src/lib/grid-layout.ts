@@ -568,7 +568,7 @@ class EdgeRouter {
     return new EdgeRouter(config).run(edges);
   }
 
-  /** Virtual boundary nodes let edges reference scope entry/exit points. */
+  /** Synthetic placements let edges reference scope entry/exit points. */
   private addBoundaryNodes(config: EdgeRouterConfig): void {
     const layerCount = config.routingAreas.length - 1;
     if (config.inId !== null) {
@@ -611,7 +611,7 @@ class EdgeRouter {
 
   /**
    * Compute the pixel + grid-column position of a port.
-   * Boundary nodes use proportional spacing; real nodes use grid-aligned spacing.
+   * Boundary nodes use proportional spacing; content nodes use grid-aligned spacing.
    */
   private computePortEndpoint(
     nodeId: number,

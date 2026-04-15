@@ -1,5 +1,5 @@
 // Wire format: the JSON structure produced by the compiler.
-// Arrays are flat-packed; see `deserialize()` for unpacking.
+// Arrays are flat-packed; see `buildGraphModel()` for unpacking.
 
 export interface GraphData {
   subgraphs: number[];
@@ -29,7 +29,7 @@ export interface RawEdge {
   targetPort: number;
 }
 
-// Resolved model types (after scope assignment and boundary rewriting).
+// Resolved model types (after scope assignment and port count inference).
 
 export interface Node {
   id: number;
@@ -56,8 +56,6 @@ export interface Scope {
   successors: Map<number, number[]>;
   inId: number | null;
   outId: number | null;
-  portCountIn: number;
-  portCountOut: number;
   label: string | null;
   parentNodeId: number | null;
 }

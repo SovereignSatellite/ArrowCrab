@@ -55,7 +55,8 @@ function unpackEdges(packed: number[]): RawEdge[] {
 // A node or edge belongs to the innermost subgraph scope whose (inId, outId)
 // range strictly contains at least one endpoint, with the other endpoint either
 // strictly inside or on the boundary.  For node assignment (idA === idB),
-// boundary IDs are excluded so the parent node stays in its enclosing scope.
+// strict containment excludes entry, exit, and parent nodes from their own
+// subgraph scope — they all fall outside the (inId, outId) range.
 //
 // Scopes are sorted by inId. We use binary search to find the last scope with
 // inId < minId, then scan backward through candidates. This reduces O(N*S) to
@@ -123,72 +124,26 @@ function appendToList<K, V>(map: Map<K, V[]>, key: K, value: V): void {
   list.push(value);
 }
 
-// Subgraph boundary IDs that don't coincide with the parent nodeId are virtual
-// markers.  Edges in the parent scope referencing a virtual ID actually target
-// the parent node.  Edges *inside* the subgraph scope keep the boundary ID.
-function rewriteBoundaryReferences(
-  scopeMap: Map<string, Scope>,
-  boundaryToParent: Map<number, number>,
-): void {
-  for (const scope of scopeMap.values()) {
-    for (let i = 0; i < scope.edges.length; i += 1) {
-      const edge = scope.edges[i];
-      const sourceIsOwnBoundary =
-        edge.sourceId === scope.inId || edge.sourceId === scope.outId;
-      const targetIsOwnBoundary =
-        edge.targetId === scope.inId || edge.targetId === scope.outId;
-
-      let rewrittenSource: number;
-      if (!sourceIsOwnBoundary && boundaryToParent.has(edge.sourceId)) {
-        rewrittenSource = boundaryToParent.get(edge.sourceId)!;
-      } else {
-        rewrittenSource = edge.sourceId;
-      }
-
-      let rewrittenTarget: number;
-      if (!targetIsOwnBoundary && boundaryToParent.has(edge.targetId)) {
-        rewrittenTarget = boundaryToParent.get(edge.targetId)!;
-      } else {
-        rewrittenTarget = edge.targetId;
-      }
-
-      if (
-        rewrittenSource !== edge.sourceId ||
-        rewrittenTarget !== edge.targetId
-      ) {
-        scope.edges[i] = {
-          sourceId: rewrittenSource,
-          sourcePort: edge.sourcePort,
-          targetId: rewrittenTarget,
-          targetPort: edge.targetPort,
-        };
-      }
-    }
-  }
-}
-
 function computePortCounts(
   scopeMap: Map<string, Scope>,
   nodeMap: Map<number, Node>,
 ): void {
   for (const scope of scopeMap.values()) {
     for (const edge of scope.edges) {
-      if (scope.inId !== null && edge.sourceId === scope.inId) {
-        scope.portCountIn = Math.max(scope.portCountIn, edge.sourcePort + 1);
-      } else {
-        const node = nodeMap.get(edge.sourceId);
-        if (node) {
-          node.portCountOut = Math.max(node.portCountOut, edge.sourcePort + 1);
-        }
+      const sourceNode = nodeMap.get(edge.sourceId);
+      if (sourceNode) {
+        sourceNode.portCountOut = Math.max(
+          sourceNode.portCountOut,
+          edge.sourcePort + 1,
+        );
       }
 
-      if (scope.outId !== null && edge.targetId === scope.outId) {
-        scope.portCountOut = Math.max(scope.portCountOut, edge.targetPort + 1);
-      } else {
-        const node = nodeMap.get(edge.targetId);
-        if (node) {
-          node.portCountIn = Math.max(node.portCountIn, edge.targetPort + 1);
-        }
+      const targetNode = nodeMap.get(edge.targetId);
+      if (targetNode) {
+        targetNode.portCountIn = Math.max(
+          targetNode.portCountIn,
+          edge.targetPort + 1,
+        );
       }
     }
   }
@@ -221,8 +176,6 @@ function createScope(
     successors: new Map(),
     inId: options.inId ?? null,
     outId: options.outId ?? null,
-    portCountIn: 0,
-    portCountOut: 0,
     label: options.label ?? null,
     parentNodeId: options.parentNodeId ?? null,
   };
@@ -230,7 +183,7 @@ function createScope(
 
 /**
  * Deserialize flat-packed graph data into a fully resolved model with
- * scope assignments, boundary rewrites, port counts, and adjacency lists.
+ * scope assignments, port counts, and adjacency lists.
  */
 export function buildGraphModel(data: GraphData): GraphModel {
   const rawSubgraphs = unpackSubgraphs(data.subgraphs);
@@ -271,6 +224,12 @@ export function buildGraphModel(data: GraphData): GraphModel {
     .filter((scope) => scope.scopeId !== TOP_LEVEL_SCOPE_ID)
     .sort((a, b) => a.inId! - b.inId!);
 
+  const boundaryIds = new Set<number>();
+  for (const subgraph of rawSubgraphs) {
+    boundaryIds.add(subgraph.inId);
+    boundaryIds.add(subgraph.outId);
+  }
+
   const nodeMap = new Map<number, Node>();
   for (const raw of rawNodes) {
     const scopeId =
@@ -289,7 +248,9 @@ export function buildGraphModel(data: GraphData): GraphModel {
       })),
     };
     nodeMap.set(raw.id, node);
-    scopeMap.get(scopeId)!.nodeIds.push(raw.id);
+    if (!boundaryIds.has(raw.id)) {
+      scopeMap.get(scopeId)!.nodeIds.push(raw.id);
+    }
   }
 
   for (const edge of rawEdges) {
@@ -299,19 +260,6 @@ export function buildGraphModel(data: GraphData): GraphModel {
     scopeMap.get(scopeId)!.edges.push(edge);
   }
 
-  const boundaryToParent = new Map<number, number>();
-  for (const [nodeId, nodeSubgraphs] of subgraphsByNode) {
-    for (const subgraph of nodeSubgraphs) {
-      if (subgraph.inId !== nodeId) {
-        boundaryToParent.set(subgraph.inId, nodeId);
-      }
-      if (subgraph.outId !== nodeId) {
-        boundaryToParent.set(subgraph.outId, nodeId);
-      }
-    }
-  }
-
-  rewriteBoundaryReferences(scopeMap, boundaryToParent);
   computePortCounts(scopeMap, nodeMap);
 
   for (const scope of scopeMap.values()) {
