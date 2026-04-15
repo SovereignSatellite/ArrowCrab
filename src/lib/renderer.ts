@@ -511,22 +511,31 @@ function renderChildSubgraphs(
       label: childScope.label,
     });
 
-    if (childScope.portCountIn > 0) {
+    let entryNode: Node | undefined;
+    if (childScope.inId !== null) {
+      entryNode = scene.model.nodeMap.get(childScope.inId);
+    }
+    let exitNode: Node | undefined;
+    if (childScope.outId !== null) {
+      exitNode = scene.model.nodeMap.get(childScope.outId);
+    }
+
+    if (entryNode && entryNode.portCountOut > 0) {
       drawBoundaryPorts(context, {
         x: currentSubgraphX,
         y: subgraphAreaY,
         frameWidthGU: childLayout.gridWidth,
-        portCount: childScope.portCountIn,
+        portCount: entryNode.portCountOut,
         side: "top",
         parentColor: node.color,
       });
     }
-    if (childScope.portCountOut > 0) {
+    if (exitNode && exitNode.portCountIn > 0) {
       drawBoundaryPorts(context, {
         x: currentSubgraphX,
         y: subgraphAreaY + frameHeight,
         frameWidthGU: childLayout.gridWidth,
-        portCount: childScope.portCountOut,
+        portCount: exitNode.portCountIn,
         side: "bottom",
         parentColor: node.color,
       });

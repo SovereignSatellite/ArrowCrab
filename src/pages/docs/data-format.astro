@@ -83,12 +83,12 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
       >
       <tr
         ><td><code>i+1</code></td><td>inId</td><td
-          >Boundary marker: entry point of the subgraph</td
+          >Entry point of the subgraph</td
         ></tr
       >
       <tr
         ><td><code>i+2</code></td><td>outId</td><td
-          >Boundary marker: exit point of the subgraph</td
+          >Exit point of the subgraph</td
         ></tr
       >
     </tbody>
@@ -119,9 +119,13 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
       For every subgraph: <code>inId &lt; childId &lt; outId</code> for all children.
     </li>
     <li>
-      A subgraph's <code>nodeId</code> may equal its <code>inId</code> or <code
-        >outId</code
-      > (never both).
+      A subgraph's <code>nodeId</code>, <code>inId</code>, and <code>outId</code>
+      are all distinct. The <code>nodeId</code> must be outside the
+      <code>(inId, outId)</code> range.
+    </li>
+    <li>
+      All three subgraph IDs (<code>nodeId</code>, <code>inId</code>,
+      <code>outId</code>) must appear in <code>nodes[]</code>.
     </li>
   </ul>
   <p>
@@ -166,30 +170,23 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
   <p>
     Each node gets assigned to its <strong>innermost</strong> enclosing subgraph
     scope using strict containment:
-    <code>inId &lt; nodeId &lt; outId</code>. Boundary IDs are excluded so
-    compound nodes stay in their parent scope instead of ending up inside their
-    own children.
+    <code>inId &lt; nodeId &lt; outId</code>. Entry, exit, and parent nodes
+    all fall outside this range, so they belong to the enclosing scope rather
+    than the subgraph they define. Entry and exit nodes are excluded from
+    <code>nodeIds</code> entirely — they appear in <code>nodeMap</code> for
+    port count inference but are not positioned by the layout engine.
   </p>
   <p>
     Edges follow the same rule, except one endpoint can sit on a boundary
     (which is how edges cross into or out of a subgraph).
   </p>
 
-  <h3>Boundary Rewriting</h3>
-  <p>
-    When a subgraph boundary ID doesn't match its parent
-    <code>nodeId</code>, it's a virtual marker. The deserializer rewrites edges
-    in the parent scope that reference virtual boundaries to point at the parent
-    node instead. This way the layout algorithm can treat all edges the same
-    without special-casing boundary connections.
-  </p>
-
   <h3>Port Count Inference</h3>
   <p>
     Port counts aren't stored in the data. They're inferred from edges.
     Input port count for a node is <code>max(targetPort) + 1</code> across all
-    edges targeting it; output port count is <code>max(sourcePort) + 1</code
-    >. This keeps the wire format small and avoids mismatches between
-    declared and actual port usage.
+    edges targeting it; output port count is <code>max(sourcePort) + 1</code>.
+    For entry and exit nodes, these port counts determine the boundary ports
+    drawn on the subgraph frame.
   </p>
 </DocsLayout>
