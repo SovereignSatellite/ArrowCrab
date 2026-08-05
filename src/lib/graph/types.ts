@@ -1,5 +1,5 @@
-// Wire format: the JSON structure produced by the compiler.
-// Arrays are flat-packed; see `buildGraphModel()` for unpacking.
+// The compiler emits this wire format; `buildGraphModel()` unpacks its
+// flat-packed arrays.
 
 export interface GraphData {
   subgraphs: number[];
@@ -7,8 +7,6 @@ export interface GraphData {
   edges: number[];
   strings: string[];
 }
-
-// Unpacked records (still referencing raw IDs, pre-scope-resolution).
 
 export interface RawSubgraph {
   nodeId: number;
@@ -29,19 +27,18 @@ export interface RawEdge {
   targetPort: number;
 }
 
-// Resolved model types (after scope assignment and port count inference).
-
 export interface Node {
   id: number;
   label: string;
   color: string;
-  portCountIn: number;
-  portCountOut: number;
+  inputPortCount: number;
+  outputPortCount: number;
   scopeId: string;
   subgraphs: { inId: number; outId: number }[];
 }
 
 export interface Edge {
+  edgeIndex: number;
   sourceId: number;
   sourcePort: number;
   targetId: number;
@@ -52,15 +49,29 @@ export interface Scope {
   scopeId: string;
   nodeIds: number[];
   edges: Edge[];
-  predecessors: Map<number, number[]>;
-  successors: Map<number, number[]>;
   inId: number | null;
   outId: number | null;
   label: string | null;
   parentNodeId: number | null;
 }
 
+export interface IndexedGraph {
+  nodeIds: Float64Array;
+  nodeLabels: string[];
+  nodeColors: string[];
+  nodeScopeIds: string[];
+  inputPortCounts: Uint32Array;
+  outputPortCounts: Uint32Array;
+  nodeSubgraphs: Array<{ inId: number; outId: number }[] | undefined>;
+  edgeSourceIndices: Uint32Array;
+}
+
 export interface GraphModel {
-  nodeMap: Map<number, Node>;
+  nodeMap: NodeLookup;
   scopeMap: Map<string, Scope>;
+  indexed: IndexedGraph;
+}
+
+export interface NodeLookup {
+  get(nodeId: number): Node | undefined;
 }

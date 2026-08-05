@@ -1,6 +1,3 @@
-// Pure color manipulation. No DOM dependencies except parseCssColor,
-// which uses an offscreen canvas as fallback for non-hex color strings.
-
 interface RGB {
   red: number;
   green: number;
@@ -13,7 +10,7 @@ interface HSL {
   lightness: number;
 }
 
-export function hexToRgb(hex: string): RGB | null {
+function hexToRgb(hex: string): RGB | null {
   const match = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
   if (!match) {
     return null;
@@ -25,7 +22,7 @@ export function hexToRgb(hex: string): RGB | null {
   };
 }
 
-export function rgbToHex({ red, green, blue }: RGB): string {
+function rgbToHex({ red, green, blue }: RGB): string {
   return (
     "#" +
     [red, green, blue]
@@ -34,7 +31,7 @@ export function rgbToHex({ red, green, blue }: RGB): string {
   );
 }
 
-export function rgbToHsl({ red, green, blue }: RGB): HSL {
+function rgbToHsl({ red, green, blue }: RGB): HSL {
   const redNorm = red / 255;
   const greenNorm = green / 255;
   const blueNorm = blue / 255;
@@ -96,7 +93,7 @@ function hueToChannel(
   return chromaLow;
 }
 
-export function hslToRgb({ hue, saturation, lightness }: HSL): RGB {
+function hslToRgb({ hue, saturation, lightness }: HSL): RGB {
   if (saturation === 0) {
     const grey = Math.round(lightness * 255);
     return { red: grey, green: grey, blue: grey };
@@ -115,10 +112,6 @@ export function hslToRgb({ hue, saturation, lightness }: HSL): RGB {
   };
 }
 
-/**
- * Parse any CSS color string into RGB.
- * Fast path for hex; falls back to an offscreen canvas for named/rgb()/etc.
- */
 let offscreenCanvas: HTMLCanvasElement | null = null;
 let offscreenContext: CanvasRenderingContext2D | null = null;
 
@@ -139,28 +132,14 @@ export function parseCssColor(color: string): RGB {
   return { red: pixel[0], green: pixel[1], blue: pixel[2] };
 }
 
-/**
- * Golden ratio conjugate - successive multiples of this produce
- * maximally-spaced hue values before any two come close to repeating.
- */
 const GOLDEN_ANGLE = 0.618033988749895;
 
-/** Starting hue offset so edge 0 isn't pure red. */
 const EDGE_HUE_ORIGIN = 0.58;
 
-/** Low saturation keeps the palette neutral / muted. */
 const EDGE_SATURATION = 0.18;
 
-/** Lightness tuned for readable contrast on the #141414 background. */
 const EDGE_LIGHTNESS = 0.58;
 
-/**
- * Generate a distinct edge color for the given index.
- *
- * Successive indices produce maximally separated hues using the golden
- * angle, while saturation and lightness are clamped so no color feels
- * garish or clashes with the dark background.
- */
 const edgeColorCache: string[] = [];
 
 export function edgeColor(index: number): string {
@@ -181,10 +160,6 @@ export function edgeColor(index: number): string {
 
 const darkenedColorCache = new Map<string, string>();
 
-/**
- * Darken a CSS color by reducing its HSL lightness.
- * @param amount Lightness reduction on a 0–1 scale (e.g. 0.1 = 10% darker).
- */
 export function darkenColor(color: string, amount: number): string {
   const cacheKey = `${color}_${amount}`;
   const cached = darkenedColorCache.get(cacheKey);

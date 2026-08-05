@@ -4,189 +4,166 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 
 <DocsLayout title="Data Format">
   <p>
-    ArrowCrab reads a JSON file that describes a directed acyclic graph. The
-    format is compact: arrays are flat-packed and strings are deduplicated
-    with a shared string table.
+    ArrowCrab reads a JSON object matching <code>GraphData</code>. The wire
+    format contains flat-packed numeric records and one shared string table.
   </p>
 
-  <h2>Wire Format</h2>
+  <h2>Top-level object</h2>
   <pre><code>interface GraphData &#123;
-  subgraphs: number[];  // flat-packed, 3 fields per record
-  nodes:     number[];  // flat-packed, 3 fields per record
-  edges:     number[];  // flat-packed, 4 fields per record
-  strings:   string[];  // shared string table
+  subgraphs: number[];
+  nodes:     number[];
+  edges:     number[];
+  strings:   string[];
 &#125;</code></pre>
 
-  <h3>Nodes</h3>
   <p>
-    Every 3 consecutive entries in <code>nodes[]</code> form one record:
+    Each packed array must have a length divisible by its record width. An empty <code
+      >strings[]</code
+    > is valid when no node records reference it; every node label and color otherwise
+    requires a valid string-table index.
   </p>
+
+  <h2>Node records</h2>
+  <p>Every three consecutive values in <code>nodes[]</code> form one record.</p>
   <table>
-    <thead>
-      <tr><th>Offset</th><th>Field</th><th>Description</th></tr>
-    </thead>
+    <thead><tr><th>Offset</th><th>Field</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr
-        ><td><code>i+0</code></td><td>id</td><td>Globally unique integer ID</td
+        ><td><code>i + 0</code></td><td><code>id</code></td><td
+          >Safe-integer node ID</td
         ></tr
       >
       <tr
-        ><td><code>i+1</code></td><td>label</td><td
-          >Index into <code>strings[]</code></td
+        ><td><code>i + 1</code></td><td><code>label</code></td><td
+          >Integer index into <code>strings[]</code></td
         ></tr
       >
       <tr
-        ><td><code>i+2</code></td><td>color</td><td
-          >Index into <code>strings[]</code> (CSS color)</td
+        ><td><code>i + 2</code></td><td><code>color</code></td><td
+          >Integer index into <code>strings[]</code>; interpreted as a CSS color
+          by the renderer</td
         ></tr
       >
     </tbody>
   </table>
 
-  <h3>Edges</h3>
-  <p>
-    Every 4 consecutive entries in <code>edges[]</code> form one record:
-  </p>
+  <h2>Edge records</h2>
+  <p>Every four consecutive values in <code>edges[]</code> form one record.</p>
   <table>
-    <thead>
-      <tr><th>Offset</th><th>Field</th><th>Description</th></tr>
-    </thead>
+    <thead><tr><th>Offset</th><th>Field</th><th>Meaning</th></tr></thead>
     <tbody>
-      <tr><td><code>i+0</code></td><td>sourceId</td><td>Source node ID</td></tr>
       <tr
-        ><td><code>i+1</code></td><td>sourcePort</td><td
-          >Output port index on source</td
+        ><td><code>i + 0</code></td><td><code>sourceId</code></td><td
+          >Source node ID</td
         ></tr
       >
-      <tr><td><code>i+2</code></td><td>targetId</td><td>Target node ID</td></tr>
       <tr
-        ><td><code>i+3</code></td><td>targetPort</td><td
-          >Input port index on target</td
+        ><td><code>i + 1</code></td><td><code>sourcePort</code></td><td
+          >Non-negative source output-port index below <code>4,294,967,295</code
+          ></td
+        ></tr
+      >
+      <tr
+        ><td><code>i + 2</code></td><td><code>targetId</code></td><td
+          >Target node ID</td
+        ></tr
+      >
+      <tr
+        ><td><code>i + 3</code></td><td><code>targetPort</code></td><td
+          >Non-negative target input-port index below <code>4,294,967,295</code
+          ></td
         ></tr
       >
     </tbody>
   </table>
 
-  <h3>Subgraphs</h3>
+  <h2>Subgraph records</h2>
   <p>
-    Every 3 consecutive entries in <code>subgraphs[]</code> form one record:
+    Every three consecutive values in <code>subgraphs[]</code> form one record.
   </p>
   <table>
-    <thead>
-      <tr><th>Offset</th><th>Field</th><th>Description</th></tr>
-    </thead>
+    <thead><tr><th>Offset</th><th>Field</th><th>Meaning</th></tr></thead>
     <tbody>
       <tr
-        ><td><code>i+0</code></td><td>nodeId</td><td
-          >The compound node that owns this subgraph</td
+        ><td><code>i + 0</code></td><td><code>nodeId</code></td><td
+          >Compound node that owns the scope</td
         ></tr
       >
       <tr
-        ><td><code>i+1</code></td><td>inId</td><td
-          >Entry point of the subgraph</td
+        ><td><code>i + 1</code></td><td><code>inId</code></td><td
+          >Scope entry boundary node</td
         ></tr
       >
       <tr
-        ><td><code>i+2</code></td><td>outId</td><td
-          >Exit point of the subgraph</td
+        ><td><code>i + 2</code></td><td><code>outId</code></td><td
+          >Scope exit boundary node</td
         ></tr
       >
     </tbody>
   </table>
 
-  <h3>Why Flat-Packed Arrays?</h3>
+  <h2>Validation rules</h2>
   <p>
-    Flat arrays avoid per-record object overhead. Serializing thousands of
-    <code>&#123;"id": ..., "label": ...&#125;</code> objects means repeating every key
-    name. With flat arrays the parser just decodes numbers, and the deserializer
-    unpacks records in a tight loop.
+    The validator applies these rules before constructing the resolved model:
   </p>
-
-  <h3>Why a String Table?</h3>
-  <p>
-    Labels and color strings often repeat across nodes. A shared
-    <code>strings[]</code> array deduplicates them so each node just stores an
-    index. This makes the payload smaller and keeps deserialization simple.
-  </p>
-
-  <h2>Invariants</h2>
   <ul>
     <li>
-      All IDs are globally unique and topologically ordered (lower ID = earlier
-      in the DAG).
+      All ID and port fields are safe integers; label and color references are
+      integer indexes.
     </li>
     <li>
-      For every subgraph: <code>inId &lt; childId &lt; outId</code> for all children.
+      Node IDs are strictly increasing in <code>nodes[]</code>, so duplicate IDs
+      are rejected.
     </li>
     <li>
-      A subgraph's <code>nodeId</code>, <code>inId</code>, and <code>outId</code>
-      are all distinct. The <code>nodeId</code> must be outside the
-      <code>(inId, outId)</code> range.
+      Each edge references existing nodes and satisfies <code
+        >sourceId &lt; targetId</code
+      >.
     </li>
     <li>
-      All three subgraph IDs (<code>nodeId</code>, <code>inId</code>,
-      <code>outId</code>) must appear in <code>nodes[]</code>.
+      Each subgraph has three existing IDs, satisfies <code
+        >inId &lt; outId</code
+      >, and places <code>nodeId</code> outside the closed interval <code
+        >[inId, outId]</code
+      >.
+    </li>
+    <li>
+      Two subgraph records may not reuse the same <code>(inId, outId)</code> pair.
+    </li>
+    <li>
+      Every label and color reference is an integer index inside <code
+        >strings[]</code
+      >, and every string-table entry is a string.
+    </li>
+    <li>
+      Port indexes are non-negative and less than <code>4,294,967,295</code>.
     </li>
   </ul>
   <p>
-    Topological ordering matters because the deserializer can iterate nodes in
-    ID order knowing predecessors are already processed. It also lets scope
-    assignment use simple range checks (<code
-      >inId &lt; id &lt; outId</code
-    >) instead of explicit membership sets.
+    The increasing-ID and edge-direction rules establish the topological order
+    used by the viewer. The wire format carries scope boundaries rather than an
+    explicit child list; scope membership is resolved from those intervals.
   </p>
 
-  <hr />
-
-  <h2>In-Memory Model</h2>
+  <h2>Scope semantics</h2>
   <p>
-    <code>buildGraphModel</code> turns the wire format into a
-    <code>GraphModel</code> with two lookup tables:
-  </p>
-
-  <table>
-    <thead>
-      <tr><th>Structure</th><th>Key</th><th>Contents</th></tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><code>nodeMap</code></td>
-        <td>node ID</td>
-        <td>Label, color, port counts, scope assignment, child subgraph list</td
-        >
-      </tr>
-      <tr>
-        <td><code>scopeMap</code></td>
-        <td>scope ID</td>
-        <td
-          >Node membership, edges, adjacency maps, boundary info, parent node
-          reference</td
-        >
-      </tr>
-    </tbody>
-  </table>
-
-  <h3>Scope Resolution</h3>
-  <p>
-    Each node gets assigned to its <strong>innermost</strong> enclosing subgraph
-    scope using strict containment:
-    <code>inId &lt; nodeId &lt; outId</code>. Entry, exit, and parent nodes
-    all fall outside this range, so they belong to the enclosing scope rather
-    than the subgraph they define. Entry and exit nodes are excluded from
-    <code>nodeIds</code> entirely — they appear in <code>nodeMap</code> for
-    port count inference but are not positioned by the layout engine.
+    A node belongs to the innermost scope whose open interval strictly contains
+    its ID: <code>inId &lt; nodeId &lt; outId</code>. Entry and exit boundary
+    nodes are excluded from a scope's <code>nodeIds</code>, and the compound
+    owner is outside the closed interval. Boundary ports still contribute to the
+    compound frame's port counts.
   </p>
   <p>
-    Edges follow the same rule, except one endpoint can sit on a boundary
-    (which is how edges cross into or out of a subgraph).
+    An edge belongs to the innermost scope for which both endpoints are inside,
+    or one endpoint is inside and the other is that scope's boundary.
   </p>
 
-  <h3>Port Count Inference</h3>
+  <h2>Port-count inference</h2>
   <p>
-    Port counts aren't stored in the data. They're inferred from edges.
-    Input port count for a node is <code>max(targetPort) + 1</code> across all
-    edges targeting it; output port count is <code>max(sourcePort) + 1</code>.
-    For entry and exit nodes, these port counts determine the boundary ports
-    drawn on the subgraph frame.
+    Port counts are not stored in the wire format. For each node, the input
+    count is the maximum referenced <code>targetPort + 1</code>, and the output
+    count is the maximum referenced <code>sourcePort + 1</code>. The same
+    inference is used for entry and exit boundary nodes when the renderer draws
+    ports on a compound frame.
   </p>
 </DocsLayout>

@@ -1,7 +1,3 @@
-/**
- * Trace a rounded rectangle path. Does not fill or stroke -
- * the caller decides how to render it.
- */
 export function roundedRect(
   context: CanvasRenderingContext2D,
   x: number,
@@ -30,32 +26,25 @@ export function roundedRect(
   context.closePath();
 }
 
-export interface TextStyle {
+interface TextStyle {
   font: string;
   fillStyle: string;
-  /** Draws a stroke outline behind the fill (paint-order: stroke) for readability. */
   strokeStyle?: string;
   strokeWidth?: number;
   textAlign?: CanvasTextAlign;
   textBaseline?: CanvasTextBaseline;
 }
 
-// Track current canvas text state to avoid redundant (expensive) font changes.
 let currentFont = "";
 let currentTextAlign: CanvasTextAlign = "start";
 let currentTextBaseline: CanvasTextBaseline = "alphabetic";
 
-/** Reset tracked font state (call if context is replaced). */
 export function resetTextState(): void {
   currentFont = "";
   currentTextAlign = "start";
   currentTextBaseline = "alphabetic";
 }
 
-/**
- * Draw text with an optional stroke outline for readability on colored backgrounds.
- * Strokes first, then fills, mimicking SVG `paint-order: stroke fill`.
- */
 export function outlinedText(
   context: CanvasRenderingContext2D,
   text: string,
@@ -91,13 +80,6 @@ export function outlinedText(
   context.fillText(text, x, y);
 }
 
-/**
- * Trace a triangular arrowhead path pointing in the given direction.
- * Does not fill or stroke.
- *
- * @param angle Direction the arrow points (radians; 0 = right, π/2 = down).
- * @param size  Distance from tip to base corners.
- */
 export function arrowhead(
   context: CanvasRenderingContext2D,
   tipX: number,
@@ -118,7 +100,6 @@ export function arrowhead(
   context.closePath();
 }
 
-/** Trace a circle path. Does not fill or stroke. */
 export function circle(
   context: CanvasRenderingContext2D,
   centerX: number,
@@ -129,7 +110,6 @@ export function circle(
   context.arc(centerX, centerY, radius, 0, Math.PI * 2);
 }
 
-/** Trace a circle and stroke it (no fill) - used for edge-crossing markers. */
 export function hollowCircle(
   context: CanvasRenderingContext2D,
   centerX: number,
@@ -145,10 +125,6 @@ export function hollowCircle(
   context.stroke();
 }
 
-/**
- * Trace a smooth path through waypoints using quadratic Bézier curves
- * at corners. Does not stroke or fill.
- */
 export function smoothPath(
   context: CanvasRenderingContext2D,
   points: ReadonlyArray<{ x: number; y: number }>,
@@ -168,10 +144,10 @@ export function smoothPath(
 
   context.moveTo(points[0].x, points[0].y);
 
-  for (let i = 1; i < points.length - 1; i += 1) {
-    const previous = points[i - 1];
-    const current = points[i];
-    const next = points[i + 1];
+  for (let pointIndex = 1; pointIndex < points.length - 1; pointIndex += 1) {
+    const previous = points[pointIndex - 1];
+    const current = points[pointIndex];
+    const next = points[pointIndex + 1];
 
     const distanceToPrevious = Math.hypot(
       current.x - previous.x,
@@ -179,7 +155,6 @@ export function smoothPath(
     );
     const distanceToNext = Math.hypot(next.x - current.x, next.y - current.y);
 
-    // Clamp so the curve doesn't overshoot either segment.
     const clampedRadius = Math.min(
       cornerRadius,
       distanceToPrevious / 2,

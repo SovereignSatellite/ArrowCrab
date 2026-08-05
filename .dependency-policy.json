@@ -1,5 +1,5 @@
 {
-  "lockfileSha256": "13c7f6b744b9a9b11c80a7cdc30d388bbf45366977316964684b60f269a8f536",
+  "lockfileSha256": "de3773904ab42da340db29764e0d3059e72b1141375f7cf43818b0d04f51a0ef",
   "npmrcSha256": "e1935558ea5d548155321ce4abd93a19127a57731f90cbd659506e2ff8ee62bf",
   "dependencySections": {
     "dependencies": {
@@ -7,6 +7,8 @@
     },
     "devDependencies": {
       "@astrojs/check": "^0.9.6",
+      "prettier": "3.8.1",
+      "prettier-plugin-astro": "0.14.1",
       "typescript": "^5.9.3"
     },
     "optionalDependencies": {},
