@@ -1,0 +1,16 @@
+{
+  "lockfileSha256": "13c7f6b744b9a9b11c80a7cdc30d388bbf45366977316964684b60f269a8f536",
+  "npmrcSha256": "e1935558ea5d548155321ce4abd93a19127a57731f90cbd659506e2ff8ee62bf",
+  "dependencySections": {
+    "dependencies": {
+      "astro": "^5.17.1"
+    },
+    "devDependencies": {
+      "@astrojs/check": "^0.9.6",
+      "typescript": "^5.9.3"
+    },
+    "optionalDependencies": {},
+    "peerDependencies": {},
+    "overrides": {}
+  }
+}
