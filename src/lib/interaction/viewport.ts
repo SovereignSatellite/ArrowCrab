@@ -1,8 +1,11 @@
+import {
+  MAX_ZOOM_SCALE,
+  MIN_ZOOM_SCALE,
+  ZOOM_STEP_FACTOR,
+  KEYBOARD_PAN_STEP,
+} from "./constants";
+
 const PAN_CLICK_THRESHOLD = 5;
-const MIN_ZOOM_SCALE = 0.1;
-const MAX_ZOOM_SCALE = 5;
-const ZOOM_STEP_FACTOR = 1.1;
-const KEYBOARD_PAN_STEP = 50;
 
 interface Viewport {
   offsetX: number;
@@ -10,7 +13,7 @@ interface Viewport {
   scale: number;
 }
 
-export interface ViewportCallbacks {
+interface ViewportCallbacks {
   onRender: () => void;
   onClick?: (canvasX: number, canvasY: number, ctrlKey: boolean) => void;
   onZoomChange?: (zoomPercent: number) => void;
@@ -26,14 +29,6 @@ export interface ViewportControls {
   destroy(): void;
 }
 
-/**
- * Attach pan, zoom, and keyboard handlers to a canvas.
- * Returns controls for programmatic zoom and a cleanup function.
- *
- * Pan: click-drag anywhere on the canvas.
- * Zoom: scroll wheel (centered on cursor), +/- keys, or programmatic.
- * Click: if the mouse barely moved between down and up, dispatches onClick.
- */
 export function setupViewport(
   canvas: HTMLCanvasElement,
   viewport: Viewport,
@@ -62,7 +57,7 @@ export function setupViewport(
       return;
     }
 
-    // Adjust offset so the point under the cursor stays fixed.
+    // Keep the graph point under the cursor fixed while changing scale.
     viewport.offsetX =
       centerX - (centerX - viewport.offsetX) * (newScale / viewport.scale);
     viewport.offsetY =
@@ -159,9 +154,10 @@ export function setupViewport(
         isDragging = false;
         canvas.style.cursor = "grab";
       } else {
+        const rect = canvas.getBoundingClientRect();
         callbacks.onClick?.(
-          event.clientX,
-          event.clientY,
+          event.clientX - rect.left,
+          event.clientY - rect.top,
           event.ctrlKey || event.metaKey,
         );
       }
@@ -172,7 +168,6 @@ export function setupViewport(
   window.addEventListener(
     "keydown",
     (event) => {
-      // Don't capture when typing in an input.
       if (
         event.target instanceof HTMLInputElement ||
         event.target instanceof HTMLTextAreaElement

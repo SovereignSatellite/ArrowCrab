@@ -7,8 +7,13 @@
   },
   "scripts": {
     "dev": "astro dev",
-    "build": "npm run verify:dependencies && astro build",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "build": "npm run format:check && npm run verify:dependencies && astro build && npm run verify:examples",
     "verify:dependencies": "node scripts/verify-dependency-policy.mjs",
+    "verify:examples": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs scripts/verify-examples.mjs",
+    "verify:layout": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs scripts/verify-layout.mjs",
+    "benchmark:layout": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs scripts/benchmark-layout.mjs",
     "preview": "astro preview",
     "astro": "astro"
   },
@@ -17,6 +22,8 @@
   },
   "devDependencies": {
     "@astrojs/check": "^0.9.6",
+    "prettier": "3.8.1",
+    "prettier-plugin-astro": "0.14.1",
     "typescript": "^5.9.3"
   }
 }

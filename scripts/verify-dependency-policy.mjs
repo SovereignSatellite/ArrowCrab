@@ -69,7 +69,11 @@ if (!equal(policy.dependencySections, actualDependencySections)) {
 }
 
 if (packageLock.lockfileVersion !== 3) {
-  reportMismatch("package-lock.json lockfileVersion", 3, packageLock.lockfileVersion);
+  reportMismatch(
+    "package-lock.json lockfileVersion",
+    3,
+    packageLock.lockfileVersion,
+  );
   mismatches.push("lockfileVersion");
 }
 
@@ -106,5 +110,7 @@ if (mismatches.length > 0) {
   );
   process.exitCode = 1;
 } else {
-  console.log("Dependency policy verified: manifest and lockfile match the approved snapshot.");
+  console.log(
+    "Dependency policy verified: manifest and lockfile match the approved snapshot.",
+  );
 }

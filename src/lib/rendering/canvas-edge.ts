@@ -1,16 +1,13 @@
 import { smoothPath, arrowhead, hollowCircle } from "./canvas-primitives";
+import type { Point } from "../geometry/types";
 import {
   CORNER_RADIUS,
   CROSSING_CIRCLE_RADIUS,
   CROSSING_CIRCLE_WIDTH,
-} from "./canvas-constants";
+  EDGE_STROKE_WIDTH,
+} from "./constants";
 
-export interface Point {
-  x: number;
-  y: number;
-}
-
-export interface DrawEdgeOptions {
+interface DrawEdgeOptions {
   points: readonly Point[];
   color?: string;
   lineWidth?: number;
@@ -19,10 +16,6 @@ export interface DrawEdgeOptions {
   arrowSize?: number;
 }
 
-/**
- * Draw a routed edge as a smooth path through waypoints,
- * with an optional arrowhead at the target end.
- */
 export function drawEdge(
   context: CanvasRenderingContext2D,
   options: DrawEdgeOptions,
@@ -33,7 +26,7 @@ export function drawEdge(
   }
 
   const color = options.color ?? "#cccccc";
-  const lineWidth = options.lineWidth ?? 1.5;
+  const lineWidth = options.lineWidth ?? EDGE_STROKE_WIDTH;
   const cornerRadius = options.cornerRadius ?? CORNER_RADIUS;
 
   smoothPath(context, points, cornerRadius);
@@ -55,7 +48,7 @@ export function drawEdge(
   }
 }
 
-export interface DrawCrossingCircleOptions {
+interface DrawCrossingCircleOptions {
   x: number;
   y: number;
   color?: string;
@@ -63,7 +56,6 @@ export interface DrawCrossingCircleOptions {
   lineWidth?: number;
 }
 
-/** Draw an empty (stroked) circle to mark where two edges cross. */
 export function drawCrossingCircle(
   context: CanvasRenderingContext2D,
   options: DrawCrossingCircleOptions,

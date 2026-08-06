@@ -1,35 +1,32 @@
 import { roundedRect, outlinedText, circle } from "./canvas-primitives";
-import { GRID_UNIT, portOffset } from "./canvas-constants";
-import { darkenColor } from "./color-utils";
+import { GRID_UNIT, NODE_STROKE_WIDTH, portOffset } from "./constants";
+import { darkenColor } from "./colors";
 
-export interface DrawNodeOptions {
+interface DrawNodeOptions {
   x: number;
   y: number;
-  /** Dimensions in grid units (scaled by GRID_UNIT internally). */
-  widthGU: number;
-  heightGU: number;
+  widthGridUnits: number;
+  heightGridUnits: number;
   color: string;
   label: string;
   nodeId: number;
-  portCountIn: number;
-  portCountOut: number;
+  inputPortCount: number;
+  outputPortCount: number;
   isCompound?: boolean;
   isExpanded?: boolean;
-  /** Explicit input port X offsets in GU (relative to node left). */
-  portInXOffsetsGU?: number[];
-  /** Explicit output port X offsets in GU (relative to node left). */
-  portOutXOffsetsGU?: number[];
+  drawBody?: boolean;
+  inputPortXOffsetsGridUnits?: number[];
+  outputPortXOffsetsGridUnits?: number[];
 }
 
-export interface DrawPortsOptions {
+interface DrawPortsOptions {
   x: number;
   y: number;
-  containerWidthGU: number;
+  containerWidthGridUnits: number;
   portCount: number;
   labelSide: "above" | "below";
   color: string;
-  /** Explicit X offsets in GU (relative to container left). Overrides equal spacing. */
-  portXOffsetsGU?: number[];
+  portXOffsetsGridUnits?: number[];
 }
 
 const NODE_CORNER_RADIUS = 3;
@@ -43,24 +40,22 @@ const ID_BADGE_FONT = "9px monospace";
 const PORT_LABEL_FONT = "7px monospace";
 const TOGGLE_FONT = "bold 10px monospace";
 
-/**
- * Draw a complete node: body, stroke, label, ID badge, ports, and
- * (optionally) a compound-node toggle button.
- */
 export function drawNode(
   context: CanvasRenderingContext2D,
   options: DrawNodeOptions,
 ): void {
-  const width = options.widthGU * GRID_UNIT;
-  const height = options.heightGU * GRID_UNIT;
+  const width = options.widthGridUnits * GRID_UNIT;
+  const height = options.heightGridUnits * GRID_UNIT;
   const { x, y } = options;
 
-  roundedRect(context, x, y, width, height, NODE_CORNER_RADIUS);
-  context.fillStyle = options.color;
-  context.fill();
-  context.strokeStyle = darkenColor(options.color, NODE_STROKE_DARKEN);
-  context.lineWidth = 1.5;
-  context.stroke();
+  if (options.drawBody !== false) {
+    roundedRect(context, x, y, width, height, NODE_CORNER_RADIUS);
+    context.fillStyle = options.color;
+    context.fill();
+    context.strokeStyle = darkenColor(options.color, NODE_STROKE_DARKEN);
+    context.lineWidth = NODE_STROKE_WIDTH;
+    context.stroke();
+  }
 
   outlinedText(context, options.label, x + width / 2, y + height / 2, {
     font: LABEL_FONT,
@@ -95,31 +90,30 @@ export function drawNode(
     });
   }
 
-  if (options.portCountIn > 0) {
+  if (options.inputPortCount > 0) {
     drawPorts(context, {
       x,
       y,
-      containerWidthGU: options.widthGU,
-      portCount: options.portCountIn,
+      containerWidthGridUnits: options.widthGridUnits,
+      portCount: options.inputPortCount,
       labelSide: "above",
       color: options.color,
-      portXOffsetsGU: options.portInXOffsetsGU,
+      portXOffsetsGridUnits: options.inputPortXOffsetsGridUnits,
     });
   }
-  if (options.portCountOut > 0) {
+  if (options.outputPortCount > 0) {
     drawPorts(context, {
       x,
       y: y + height,
-      containerWidthGU: options.widthGU,
-      portCount: options.portCountOut,
+      containerWidthGridUnits: options.widthGridUnits,
+      portCount: options.outputPortCount,
       labelSide: "below",
       color: options.color,
-      portXOffsetsGU: options.portOutXOffsetsGU,
+      portXOffsetsGridUnits: options.outputPortXOffsetsGridUnits,
     });
   }
 }
 
-/** Draw a row of port circles evenly spaced, offset just outside a horizontal edge. */
 export function drawPorts(
   context: CanvasRenderingContext2D,
   options: DrawPortsOptions,
@@ -132,18 +126,24 @@ export function drawPorts(
     offsetY = PORT_OUTER_OFFSET;
   }
 
-  for (let i = 0; i < options.portCount; i += 1) {
+  for (let portIndex = 0; portIndex < options.portCount; portIndex += 1) {
     let centerX: number;
     if (
-      options.portXOffsetsGU &&
-      i < options.portXOffsetsGU.length &&
-      options.portXOffsetsGU[i] >= 0
+      options.portXOffsetsGridUnits &&
+      portIndex < options.portXOffsetsGridUnits.length &&
+      options.portXOffsetsGridUnits[portIndex] >= 0
     ) {
-      centerX = options.x + options.portXOffsetsGU[i] * GRID_UNIT;
+      centerX =
+        options.x + options.portXOffsetsGridUnits[portIndex] * GRID_UNIT;
     } else {
       centerX =
         options.x +
-        portOffset(options.containerWidthGU, i, options.portCount) * GRID_UNIT;
+        portOffset(
+          options.containerWidthGridUnits,
+          portIndex,
+          options.portCount,
+        ) *
+          GRID_UNIT;
     }
     const centerY = options.y + offsetY;
 
@@ -151,7 +151,7 @@ export function drawPorts(
     context.fillStyle = PORT_FILL;
     context.fill();
     context.strokeStyle = darkenColor(options.color, NODE_STROKE_DARKEN);
-    context.lineWidth = 1.5;
+    context.lineWidth = NODE_STROKE_WIDTH;
     context.stroke();
 
     let labelY: number;
@@ -167,7 +167,7 @@ export function drawPorts(
       baseline = "top";
     }
 
-    outlinedText(context, String(i + 1), centerX, labelY, {
+    outlinedText(context, String(portIndex + 1), centerX, labelY, {
       font: PORT_LABEL_FONT,
       fillStyle: "#dddddd",
       strokeStyle: "#000000",

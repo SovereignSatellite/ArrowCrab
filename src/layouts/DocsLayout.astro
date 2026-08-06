@@ -13,6 +13,7 @@ const navItems = [
   { href: `${base}/docs/layout-algorithm/`, label: "Layout Algorithm" },
   { href: `${base}/docs/rendering/`, label: "Rendering" },
   { href: `${base}/docs/interaction/`, label: "Interaction" },
+  { href: `${base}/docs/references/`, label: "References" },
 ];
 
 const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
@@ -28,11 +29,6 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
     <title>{title} Docs</title>
   </head>
   <body>
-    <header>
-      <a href={`${base}/`} class="logo">ArrowCrab</a>
-      <span class="separator">/</span>
-      <a href={`${base}/docs/`} class="docs-link">Docs</a>
-    </header>
     <div class="layout">
       <nav>
         <ul>
@@ -81,45 +77,9 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
         min-height: 100vh;
       }
 
-      header {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        padding: 14px 24px;
-        border-bottom: 1px solid #2a2a2a;
-        background: rgba(20, 20, 20, 0.95);
-        backdrop-filter: blur(8px);
-        position: sticky;
-        top: 0;
-        z-index: 100;
-      }
-
-      .logo {
-        font-weight: 700;
-        font-size: 1rem;
-        color: #fff;
-        text-decoration: none;
-        letter-spacing: -0.02em;
-      }
-
-      .separator {
-        color: #444;
-        font-size: 0.9rem;
-      }
-
-      .docs-link {
-        color: #999;
-        text-decoration: none;
-        font-size: 0.9rem;
-      }
-
-      .docs-link:hover {
-        color: #ccc;
-      }
-
       .layout {
         display: flex;
-        min-height: calc(100vh - 49px);
+        min-height: 100vh;
       }
 
       nav {
@@ -131,8 +91,8 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
         flex-direction: column;
         justify-content: space-between;
         position: sticky;
-        top: 49px;
-        height: calc(100vh - 49px);
+        top: 0;
+        height: 100vh;
         overflow-y: auto;
       }
 
