@@ -673,6 +673,23 @@ assert.throws(
   () => buildGraphModel({ ...graphData, nodes: [1.5, 1, 5] }),
   /safe integer/,
 );
+assert.deepEqual(
+  Array.from(
+    buildGraphModel({
+      ...graphData,
+      nodes: [...graphData.nodes.slice(3), ...graphData.nodes.slice(0, 3)],
+    }).indexed.nodeIds,
+  ),
+  [1, 2, 3, 4, 5, 6],
+);
+assert.throws(
+  () =>
+    buildGraphModel({
+      ...graphData,
+      nodes: [...graphData.nodes, ...graphData.nodes.slice(0, 3)],
+    }),
+  /unique/,
+);
 
 const snapshot = serializeLayoutSnapshot(first.layoutMap, first.routingMap);
 const restored = deserializeLayoutSnapshot(snapshot);

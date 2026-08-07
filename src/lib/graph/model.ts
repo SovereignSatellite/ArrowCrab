@@ -147,10 +147,10 @@ function validateStringTable(strings: string[]): void {
   }
 }
 
-function validateNodeOrdering(nodes: readonly RawNode[]): void {
+function validateUniqueNodeIds(nodes: readonly RawNode[]): void {
   for (let nodeIndex = 1; nodeIndex < nodes.length; nodeIndex += 1) {
-    if (nodes[nodeIndex - 1].id >= nodes[nodeIndex].id) {
-      throw new Error("Node IDs must be strictly increasing in input order.");
+    if (nodes[nodeIndex - 1].id === nodes[nodeIndex].id) {
+      throw new Error("Node IDs must be unique.");
     }
   }
 }
@@ -309,7 +309,8 @@ export function buildGraphModel(data: GraphData): GraphModel {
   const rawNodes = unpackNodes(data.nodes, data.strings);
   const rawEdges = unpackEdges(data.edges);
   validateStringTable(data.strings);
-  validateNodeOrdering(rawNodes);
+  rawNodes.sort((leftNode, rightNode) => leftNode.id - rightNode.id);
+  validateUniqueNodeIds(rawNodes);
   validateGraphReferences(rawSubgraphs, rawNodes, rawEdges);
 
   const subgraphsByNode = groupSubgraphsByNode(rawSubgraphs);
