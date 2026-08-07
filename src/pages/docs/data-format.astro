@@ -111,10 +111,7 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
       All ID and port fields are safe integers; label and color references are
       integer indexes.
     </li>
-    <li>
-      Node IDs are strictly increasing in <code>nodes[]</code>, so duplicate IDs
-      are rejected.
-    </li>
+    <li>Node records may appear in any order. Node IDs must be unique.</li>
     <li>
       Each edge references existing nodes and satisfies <code
         >sourceId &lt; targetId</code
