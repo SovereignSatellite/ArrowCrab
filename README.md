@@ -1,49 +1,36 @@
 # ArrowCrab
 
-An interactive viewer for directed acyclic graphs (DAGs). Drop in a JSON file and explore your computation graph with pan, zoom, expand/collapse, and causal cone highlighting.
+A directed acyclic graph viewer with automatic layout, pan, zoom, compound expansion, and dependency highlighting.
 
-## What It Does
+- Drop a JSON file, browse for one, or choose an example.
+- Drag to pan; scroll or pinch to zoom. Arrow keys pan, `+`/`=` and `-` zoom, and `0` fits the graph.
+- Click `[+]`/`[−]` to expand/collapse compounds.
+- Click a node outside its compound toggle to highlight its dependencies and dependents, or an edge to highlight it and its endpoints. Ctrl/Cmd-click selects multiple items and combines their highlights; empty space clears selection.
+- Click **Load JSON** (top-right) to return to the file picker, or **Cancel loading** to stop a load.
 
-ArrowCrab takes a JSON graph and renders it as an interactive diagram:
+## PNG export
 
-- **Automatic layout** - nodes are arranged in layers with edges routed between them. No manual positioning.
-- **Compound nodes** - nodes can contain sub-graphs. Click `[+]` to expand, `[−]` to collapse.
-- **Causal cones** - click a node to highlight everything it depends on and everything that depends on it. The rest dims out.
-- **Navigation** - drag to pan, scroll to zoom (zooms at your cursor), keyboard shortcuts, pinch-to-zoom on touch.
-
-## How to Use
-
-1. **Load a graph** - drag and drop a `.json` file, or click to browse.
-2. **Navigate** - drag to pan, scroll to zoom, press `0` to fit the whole graph on screen.
-3. **Explore compound nodes** - click `[+]` on nodes with sub-graphs to expand them.
-4. **Trace dependencies** - click a node to see its causal cone. Ctrl+click to select multiple nodes and see the combined cone.
-5. **Click edges** - edges are clickable too. Click one to highlight it and its endpoints.
-6. **Reset** - click "Load JSON" in the top-right to go back to the file picker.
-
-### Keyboard Shortcuts
-
-| Key        | Action        |
-| ---------- | ------------- |
-| Arrow keys | Pan           |
-| `+` / `=`  | Zoom in       |
-| `-`        | Zoom out      |
-| `0`        | Fit to screen |
-
-## JSON Format
-
-The viewer expects a JSON file with this structure:
-
-```json
-{
-  "subgraphs": [nodeId, inId, outId, ...],
-  "nodes": [id, labelIndex, colorIndex, ...],
-  "edges": [sourceId, sourcePort, targetId, targetPort, ...],
-  "strings": ["label1", "#ff6644", ...]
-}
+```sh
+npm run screenshot -- graph.json
+npm run screenshot -- graph.json output.png --expand-all
 ```
 
-Arrays are flat-packed for compactness. Node labels and colors are indices into the shared `strings` array. See the [technical docs](/docs/data-format/) for the full spec.
+The first command writes `graph.png` beside the JSON. Image dimensions follow the diagram and are subject to canvas/memory limits.
 
-## Documentation
+## Library
 
-Docs covering architecture, data format, layout algorithm, rendering, and interaction are at [`/docs/`](/docs/) when running the site.
+`npm run build:library` builds the `arrowcrab/engine`, `arrowcrab/drawing`, `arrowcrab/diagram`, and `arrowcrab/png` entry points. Drawing accepts a supplied canvas context; `arrowcrab/drawing/webgl` provides the optional WebGL2 backend.
+
+```js
+import { buildGraphModel, layoutGraph } from "arrowcrab/engine";
+import { renderDiagramPng } from "arrowcrab/png";
+
+const diagram = layoutGraph(buildGraphModel(data), new Set());
+const png = await renderDiagramPng(diagram, {
+  scale: 1,
+  padding: 24,
+  background: "#141414",
+});
+```
+
+[Data format](https://sovereignsatellite.github.io/ArrowCrab/docs/data-format/) · [Documentation](https://sovereignsatellite.github.io/ArrowCrab/docs/)

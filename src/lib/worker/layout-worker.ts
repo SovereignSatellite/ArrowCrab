@@ -1,84 +1,37 @@
-import { buildGraphModel, type GraphData } from "../graph";
-import { computeAllLayouts } from "../layout";
-import { computeAllRouting } from "../routing";
-import { serializeLayoutSnapshot } from "../scene";
+import { buildGraphModel, type GraphData } from "../engine/graph/index.ts";
+import { computeAllLayouts } from "../engine/layout/index.ts";
+import { computeAllRouting } from "../engine/routing/index.ts";
+import { serializeLayoutSnapshot } from "../diagram/index.ts";
+import type { LayoutRequest, LayoutResponse } from "./types.ts";
 
-interface LayoutRequest {
-  type: "layout";
-  requestId: number;
-  json: string;
+function respond(response: LayoutResponse): void {
+  self.postMessage(response);
 }
 
-let activeRequestId = -1;
-
 self.addEventListener("message", (event: MessageEvent<LayoutRequest>) => {
-  const request = event.data;
-  if (request.type !== "layout") {
-    return;
-  }
-  activeRequestId = request.requestId;
-
   try {
-    self.postMessage({
-      type: "progress",
-      requestId: request.requestId,
-      phase: "validating",
-    });
-    const graphData = JSON.parse(request.json) as GraphData;
+    respond({ type: "progress", phase: "validating" });
+    const graphData = JSON.parse(event.data.json) as GraphData;
     const model = buildGraphModel(graphData);
-    if (activeRequestId !== request.requestId) {
-      return;
-    }
 
-    self.postMessage({
-      type: "progress",
-      requestId: request.requestId,
-      phase: "layout",
-    });
+    respond({ type: "progress", phase: "layout" });
     const expandedNodes = new Set<number>();
     const layoutMap = computeAllLayouts(model, expandedNodes);
-    if (activeRequestId !== request.requestId) {
-      return;
-    }
 
-    self.postMessage({
-      type: "progress",
-      requestId: request.requestId,
-      phase: "routing",
-    });
+    respond({ type: "progress", phase: "routing" });
     const routingMap = computeAllRouting(model, layoutMap, expandedNodes);
     const snapshot = serializeLayoutSnapshot(layoutMap, routingMap);
+    const response: LayoutResponse = { type: "ready", graphData, snapshot };
     const transferables = snapshot.routing.flatMap((routing) => [
       routing.routeOffsets.buffer,
       routing.routePoints.buffer,
       routing.routeBounds.buffer,
     ]);
-    self.postMessage(
-      {
-        type: "ready",
-        requestId: request.requestId,
-        graphData,
-        snapshot,
-      },
-      { transfer: transferables as Transferable[] },
-    );
+    self.postMessage(response, { transfer: transferables as Transferable[] });
   } catch (error) {
-    self.postMessage({
+    respond({
       type: "error",
-      requestId: request.requestId,
       message: error instanceof Error ? error.message : "Unable to load graph.",
     });
   }
 });
-
-self.addEventListener(
-  "message",
-  (event: MessageEvent<{ type: "cancel"; requestId: number }>) => {
-    if (
-      event.data.type === "cancel" &&
-      event.data.requestId === activeRequestId
-    ) {
-      activeRequestId = -1;
-    }
-  },
-);

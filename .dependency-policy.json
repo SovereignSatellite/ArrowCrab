@@ -1,15 +1,16 @@
 {
-  "lockfileSha256": "12403a425c189c2ceb076d69bf879531aa9f0b787b46d65d87eb3607279b7118",
-  "npmrcSha256": "e1935558ea5d548155321ce4abd93a19127a57731f90cbd659506e2ff8ee62bf",
+  "lockfileSha256": "d4821dfa48e2ca19e9dcfb80d1ce9ba4e1d3c72eb2af23a9b1e6d670a659e7b5",
+  "npmrcSha256": "4f3f9c3b300ba5b9d986da31a2ac89a266782b4aec3610c4a2b6e6fda8f91753",
   "dependencySections": {
     "dependencies": {
-      "astro": "^5.17.1"
+      "@napi-rs/canvas": "1.0.10",
+      "astro": "7.3.5"
     },
     "devDependencies": {
-      "@astrojs/check": "^0.9.6",
-      "prettier": "3.8.1",
-      "prettier-plugin-astro": "0.14.1",
-      "typescript": "^5.9.3"
+      "@astrojs/check": "0.9.10",
+      "prettier": "3.9.9",
+      "prettier-plugin-astro": "1.1.0",
+      "typescript": "6.0.3"
     },
     "optionalDependencies": {},
     "peerDependencies": {},

@@ -1,0 +1,20 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "declaration": true,
+    "rootDir": "src/lib",
+    "outDir": "dist/library",
+    "rewriteRelativeImportExtensions": true,
+    "skipLibCheck": true,
+    "lib": ["ES2022", "DOM", "DOM.Iterable"]
+  },
+  "include": [
+    "src/lib/engine/**/*.ts",
+    "src/lib/diagram/**/*.ts",
+    "src/lib/drawing/**/*.ts",
+    "src/lib/platform/**/*.ts"
+  ]
+}

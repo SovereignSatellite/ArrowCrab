@@ -4,163 +4,103 @@ import DocsLayout from "../../layouts/DocsLayout.astro";
 
 <DocsLayout title="Data Format">
   <p>
-    ArrowCrab reads a JSON object matching <code>GraphData</code>. The wire
-    format contains flat-packed numeric records and one shared string table.
+    A graph is a JSON object with four arrays. Concatenate numeric records into
+    flat arrays; string indexes and port indexes start at zero.
   </p>
-
-  <h2>Top-level object</h2>
-  <pre><code>interface GraphData &#123;
-  subgraphs: number[];
-  nodes:     number[];
-  edges:     number[];
-  strings:   string[];
+  <table>
+    <thead>
+      <tr>
+        <th>Array</th>
+        <th>Record</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>
+          <code>strings</code>
+        </td>
+        <td>Labels and CSS color strings</td>
+      </tr>
+      <tr>
+        <td>
+          <code>nodes</code>
+        </td>
+        <td>
+          <code>id, labelIndex, colorIndex</code>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>edges</code>
+        </td>
+        <td>
+          <code>sourceId, sourcePort, targetId, targetPort</code>
+        </td>
+      </tr>
+      <tr>
+        <td>
+          <code>subgraphs</code>
+        </td>
+        <td>
+          <code>nodeId, inId, outId</code> (owner, entry, exit)
+        </td>
+      </tr>
+    </tbody>
+  </table>
+  <pre><code>&#123;
+  "strings": ["A", "#6aa0ff", "B"],
+  "nodes": [0, 0, 1, 1, 2, 1],
+  "edges": [0, 0, 1, 0],
+  "subgraphs": []
 &#125;</code></pre>
 
-  <p>
-    Each packed array must have a length divisible by its record width. An empty <code
-      >strings[]</code
-    > is valid when no node records reference it; every node label and color otherwise
-    requires a valid string-table index.
-  </p>
-
-  <h2>Node records</h2>
-  <p>Every three consecutive values in <code>nodes[]</code> form one record.</p>
-  <table>
-    <thead><tr><th>Offset</th><th>Field</th><th>Meaning</th></tr></thead>
-    <tbody>
-      <tr
-        ><td><code>i + 0</code></td><td><code>id</code></td><td
-          >Safe-integer node ID</td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 1</code></td><td><code>label</code></td><td
-          >Integer index into <code>strings[]</code></td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 2</code></td><td><code>color</code></td><td
-          >Integer index into <code>strings[]</code>; interpreted as a CSS color
-          by the renderer</td
-        ></tr
-      >
-    </tbody>
-  </table>
-
-  <h2>Edge records</h2>
-  <p>Every four consecutive values in <code>edges[]</code> form one record.</p>
-  <table>
-    <thead><tr><th>Offset</th><th>Field</th><th>Meaning</th></tr></thead>
-    <tbody>
-      <tr
-        ><td><code>i + 0</code></td><td><code>sourceId</code></td><td
-          >Source node ID</td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 1</code></td><td><code>sourcePort</code></td><td
-          >Non-negative source output-port index below <code>4,294,967,295</code
-          ></td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 2</code></td><td><code>targetId</code></td><td
-          >Target node ID</td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 3</code></td><td><code>targetPort</code></td><td
-          >Non-negative target input-port index below <code>4,294,967,295</code
-          ></td
-        ></tr
-      >
-    </tbody>
-  </table>
-
-  <h2>Subgraph records</h2>
-  <p>
-    Every three consecutive values in <code>subgraphs[]</code> form one record.
-  </p>
-  <table>
-    <thead><tr><th>Offset</th><th>Field</th><th>Meaning</th></tr></thead>
-    <tbody>
-      <tr
-        ><td><code>i + 0</code></td><td><code>nodeId</code></td><td
-          >Compound node that owns the scope</td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 1</code></td><td><code>inId</code></td><td
-          >Scope entry boundary node</td
-        ></tr
-      >
-      <tr
-        ><td><code>i + 2</code></td><td><code>outId</code></td><td
-          >Scope exit boundary node</td
-        ></tr
-      >
-    </tbody>
-  </table>
-
-  <h2>Validation rules</h2>
-  <p>
-    The validator applies these rules before constructing the resolved model:
-  </p>
+  <h2>Requirements</h2>
   <ul>
     <li>
-      All ID and port fields are safe integers; label and color references are
-      integer indexes.
-    </li>
-    <li>Node records may appear in any order. Node IDs must be unique.</li>
-    <li>
-      Each edge references existing nodes and satisfies <code
-        >sourceId &lt; targetId</code
-      >.
+      Arrays may be empty. Numeric array lengths must be multiples of their
+      record widths: 3 for nodes and subgraphs, 4 for edges.
     </li>
     <li>
-      Each subgraph has three existing IDs, satisfies <code
-        >inId &lt; outId</code
-      >, and places <code>nodeId</code> outside the closed interval <code
-        >[inId, outId]</code
-      >.
+      IDs must be safe integers; node IDs must be unique. No record sorting is
+      required. All referenced node IDs and string indexes must exist.
     </li>
     <li>
-      Two subgraph records may not reuse the same <code>(inId, outId)</code> pair.
+      Every string-table entry must be a string. Label and color indexes must be
+      integers; ports must be integers with{" "}
+      <code>0 &lt;= port &lt; 4,294,967,295</code>.
     </li>
     <li>
-      Every label and color reference is an integer index inside <code
-        >strings[]</code
-      >, and every string-table entry is a string.
+      Edges connect output ports to input ports and require{" "}
+      <code>sourceId &lt; targetId</code>.
     </li>
     <li>
-      Port indexes are non-negative and less than <code>4,294,967,295</code>.
+      Each subgraph requires <code>inId &lt; outId</code>, its owner outside{" "}
+      <code>[inId, outId]</code>, and a unique <code>(inId, outId)</code> pair.
+      Individual boundary IDs may be shared. Boundaries cannot own subgraphs;
+      ownership must form an acyclic hierarchy rooted at the top level.
     </li>
   </ul>
-  <p>
-    The increasing-ID and edge-direction rules establish the topological order
-    used by the viewer. The wire format carries scope boundaries rather than an
-    explicit child list; scope membership is resolved from those intervals.
-  </p>
 
-  <h2>Scope semantics</h2>
+  <h2>Scopes and ports</h2>
   <p>
-    A node belongs to the innermost scope whose open interval strictly contains
-    its ID: <code>inId &lt; nodeId &lt; outId</code>. Entry and exit boundary
-    nodes are excluded from a scope's <code>nodeIds</code>, and the compound
-    owner is outside the closed interval. Boundary ports still contribute to the
-    compound frame's port counts.
+    An ordinary node belongs to the narrowest open interval{" "}
+    <code>inId &lt; id &lt; outId</code>; equal widths favor the greater{" "}
+    <code>inId</code>. Nodes outside all intervals belong to the top level.
+    Entry and exit nodes aren't ordinary members; they render as frame
+    boundaries, not node bodies.
   </p>
   <p>
-    An edge belongs to the innermost scope for which both endpoints are inside,
-    or one endpoint is inside and the other is that scope's boundary.
+    Edges stay within one scope: ordinary node to ordinary node, entry to node,
+    node to exit, or entry to exit. Empty scopes allow entry-to-exit
+    passthroughs. An ordinary endpoint determines the scope when boundaries are
+    shared; boundary-only edges require that scope's entry/exit pair. The
+    owner's ports connect in its own scope; child boundary ports connect in the
+    child scope.
   </p>
-
-  <h2>Port-count inference</h2>
   <p>
-    Port counts are not stored in the wire format. For each node, the input
-    count is the maximum referenced <code>targetPort + 1</code>, and the output
-    count is the maximum referenced <code>sourcePort + 1</code>. The same
-    inference is used for entry and exit boundary nodes when the renderer draws
-    ports on a compound frame.
+    Each node's input/output count is its highest referenced input/output port
+    index plus one, or zero when unused. Counts include all uses of a shared
+    boundary ID. Edge order determines edge identity and color; subgraph order
+    determines frame order within an owner.
   </p>
 </DocsLayout>

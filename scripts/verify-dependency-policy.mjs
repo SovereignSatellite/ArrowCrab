@@ -57,7 +57,7 @@ const actualDependencySections = Object.fromEntries(
 const lockfileSha256 = hashFile("package-lock.json");
 const npmrcSha256 = hashFile(".npmrc");
 const lockfileRootDependencies = packageLock.packages?.[""]?.dependencies ?? {};
-const mismatches = [];
+let mismatch = false;
 
 if (!equal(policy.dependencySections, actualDependencySections)) {
   reportMismatch(
@@ -65,7 +65,7 @@ if (!equal(policy.dependencySections, actualDependencySections)) {
     policy.dependencySections,
     actualDependencySections,
   );
-  mismatches.push("package.json dependency sections");
+  mismatch = true;
 }
 
 if (packageLock.lockfileVersion !== 3) {
@@ -74,7 +74,7 @@ if (packageLock.lockfileVersion !== 3) {
     3,
     packageLock.lockfileVersion,
   );
-  mismatches.push("lockfileVersion");
+  mismatch = true;
 }
 
 if (!equal(lockfileRootDependencies, actualDependencySections.dependencies)) {
@@ -83,7 +83,7 @@ if (!equal(lockfileRootDependencies, actualDependencySections.dependencies)) {
     actualDependencySections.dependencies,
     lockfileRootDependencies,
   );
-  mismatches.push("root dependency synchronization");
+  mismatch = true;
 }
 
 if (lockfileSha256 !== policy.lockfileSha256) {
@@ -92,7 +92,7 @@ if (lockfileSha256 !== policy.lockfileSha256) {
     policy.lockfileSha256,
     lockfileSha256,
   );
-  mismatches.push("lockfile hash");
+  mismatch = true;
 }
 
 if (npmrcSha256 !== policy.npmrcSha256) {
@@ -101,10 +101,10 @@ if (npmrcSha256 !== policy.npmrcSha256) {
     policy.npmrcSha256,
     npmrcSha256,
   );
-  mismatches.push("npm configuration hash");
+  mismatch = true;
 }
 
-if (mismatches.length > 0) {
+if (mismatch) {
   console.error(
     "Dependency changes must be explicitly approved. Update the manifest and lockfile together, refresh the policy snapshot, and rerun this check.",
   );

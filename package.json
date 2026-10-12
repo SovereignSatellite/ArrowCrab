@@ -9,21 +9,50 @@
     "dev": "astro dev",
     "format": "prettier --write .",
     "format:check": "prettier --check .",
-    "build": "npm run format:check && npm run verify:dependencies && astro build && npm run verify:examples",
+    "check": "astro check",
+    "build": "npm run format:check && npm run verify:dependencies && npm run check && astro build && npm run build:library && npm run verify:examples && npm run verify:layout && npm run verify:screenshot",
     "verify:dependencies": "node scripts/verify-dependency-policy.mjs",
-    "verify:examples": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs scripts/verify-examples.mjs",
-    "verify:layout": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs scripts/verify-layout.mjs",
-    "benchmark:layout": "node --experimental-strip-types --experimental-loader ./scripts/ts-extension-loader.mjs scripts/benchmark-layout.mjs",
+    "verify:examples": "node scripts/verify-examples.mjs",
+    "verify:layout": "node scripts/verify-layout.mjs",
     "preview": "astro preview",
-    "astro": "astro"
+    "astro": "astro",
+    "build:library": "tsc -p tsconfig.library.json",
+    "screenshot": "node scripts/screenshot.mjs",
+    "verify:screenshot": "node scripts/verify-screenshot.mjs"
   },
   "dependencies": {
-    "astro": "^5.17.1"
+    "@napi-rs/canvas": "1.0.10",
+    "astro": "7.3.5"
   },
   "devDependencies": {
-    "@astrojs/check": "^0.9.6",
-    "prettier": "3.8.1",
-    "prettier-plugin-astro": "0.14.1",
-    "typescript": "^5.9.3"
-  }
+    "@astrojs/check": "0.9.10",
+    "prettier": "3.9.9",
+    "prettier-plugin-astro": "1.1.0",
+    "typescript": "6.0.3"
+  },
+  "exports": {
+    "./engine": {
+      "types": "./dist/library/engine/index.d.ts",
+      "import": "./dist/library/engine/index.js"
+    },
+    "./drawing": {
+      "types": "./dist/library/drawing/index.d.ts",
+      "import": "./dist/library/drawing/index.js"
+    },
+    "./diagram": {
+      "types": "./dist/library/diagram/index.d.ts",
+      "import": "./dist/library/diagram/index.js"
+    },
+    "./png": {
+      "types": "./dist/library/platform/png.d.ts",
+      "import": "./dist/library/platform/png.js"
+    },
+    "./drawing/webgl": {
+      "types": "./dist/library/drawing/webgl-renderer.d.ts",
+      "import": "./dist/library/drawing/webgl-renderer.js"
+    }
+  },
+  "files": [
+    "dist/library"
+  ]
 }

@@ -2,50 +2,14 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 ---
 
-<DocsLayout title="Architecture Overview">
+<DocsLayout title="ArrowCrab">
   <p>
-    ArrowCrab reads flat-packed <code>GraphData</code>, resolves compound
-    scopes, computes a layered orthogonal layout, and renders an interactive
-    scene.
+    ArrowCrab displays directed acyclic graphs from JSON files with automatic
+    layout, expandable compound nodes, and dependency highlighting.
   </p>
-
-  <h2>Runtime pipeline</h2>
-  <pre><code>JSON text
-  └─ worker: parse → validate/model → layout → routing → snapshot
-       └─ main thread: model + snapshot → tile indexes → WebGL2/Canvas 2D scene</code></pre>
-
-  <ol>
-    <li><code>src/lib/graph/</code> validates records and resolves scopes.</li>
-    <li>
-      <code>src/lib/layout/</code> assigns layers, orders nodes, places scopes, and
-      sizes compounds.
-    </li>
-    <li>
-      <code>src/lib/routing/</code> allocates tracks and emits orthogonal routes.
-    </li>
-    <li>
-      <code>src/lib/scene/</code> serializes geometry and builds exact tile indexes.
-    </li>
-    <li>
-      <code>src/lib/rendering/</code> draws the scene and builds hit regions.
-    </li>
-    <li>
-      <code>src/lib/interaction/</code> updates the viewport and selection.
-    </li>
-    <li>
-      <code>src/lib/worker/</code> runs the pipeline and transfers route arrays.
-    </li>
-  </ol>
-
   <p>
-    WebGL2 draws structural geometry when available. Canvas 2D draws labels,
-    ports, hit regions, and the fallback scene.
-  </p>
-
-  <p>
-    See <a href="../data-format/">Data Format</a> for the input contract,
-    <a href="../layout-algorithm/">Layout Algorithm</a> for layout and routing,
-    <a href="../rendering/">Rendering</a> for scene construction, and
-    <a href="../interaction/">Interaction</a> for non-trivial input behavior.
+    Drop a file, browse for one, or choose an example. See{" "}
+    <a href="./data-format/">Data Format</a> for file requirements and{" "}
+    <a href="./interaction/">Controls</a> for navigation and selection.
   </p>
 </DocsLayout>

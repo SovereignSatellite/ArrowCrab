@@ -1,4 +1,4 @@
-import type { GraphData } from "./graph/types";
+import type { GraphData } from "./engine/graph/types.ts";
 
 export interface ExampleGraphDefinition {
   slug: string;
@@ -36,7 +36,7 @@ function nextExampleNodeId(nodes: ExampleNode[]): number {
 function createGraph(
   nodes: ExampleNode[],
   edges: ExampleEdge[],
-  subgraphs: ExampleSubgraph[] = [],
+  subgraphs: ExampleSubgraph[],
 ): GraphData {
   const strings = [""];
   const stringIndex = new Map<string, number>();
@@ -71,7 +71,7 @@ function appendNestedCompound(
   subgraphs: ExampleSubgraph[],
   attachSourceId: number,
   label: string,
-  attachSourcePort = 0,
+  attachSourcePort: number,
 ): number {
   const parentId = nextExampleNodeId(nodes);
   const outerEntryId = parentId + 1;
@@ -119,6 +119,7 @@ function createWideFanOut(): GraphData {
         subgraphs,
         1,
         `Wide group ${groupIndex + 1}`,
+        0,
       ),
     );
   }
@@ -167,6 +168,7 @@ function createDeepPipeline(): GraphData {
         subgraphs,
         stageId,
         `Deep stage ${stageIndex + 1} group`,
+        0,
       );
     } else {
       previousId = stageId;
@@ -194,7 +196,7 @@ function createCrossingWeave(): GraphData {
     for (let position = 0; position < layerWidth; position += 1) {
       if (compoundSlots.has(`${layer}:${position}`)) {
         const previousLayer = layers[layer - 1];
-        const attachSourceId = previousLayer[position] ?? previousLayer[0];
+        const attachSourceId = previousLayer[position];
         layerNodes.push(
           appendNestedCompound(
             nodes,
@@ -202,6 +204,7 @@ function createCrossingWeave(): GraphData {
             subgraphs,
             attachSourceId,
             `Weave L${layer + 1} position ${position + 1} group`,
+            0,
           ),
         );
       } else {

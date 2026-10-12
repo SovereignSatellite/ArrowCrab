@@ -10,9 +10,9 @@ const base = import.meta.env.BASE_URL;
 const navItems = [
   { href: `${base}/docs/`, label: "Overview" },
   { href: `${base}/docs/data-format/`, label: "Data Format" },
-  { href: `${base}/docs/layout-algorithm/`, label: "Layout Algorithm" },
-  { href: `${base}/docs/rendering/`, label: "Rendering" },
-  { href: `${base}/docs/interaction/`, label: "Interaction" },
+  { href: `${base}/docs/layout-algorithm/`, label: "Layout" },
+  { href: `${base}/docs/rendering/`, label: "Display" },
+  { href: `${base}/docs/interaction/`, label: "Controls" },
   { href: `${base}/docs/references/`, label: "References" },
 ];
 
@@ -32,19 +32,17 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
     <div class="layout">
       <nav>
         <ul>
-          {
-            navItems.map((item) => {
-              const itemPath = item.href.replace(/\/$/, "");
-              const isActive = currentPath === itemPath;
-              return (
-                <li>
-                  <a href={item.href} class:list={[{ active: isActive }]}>
-                    {item.label}
-                  </a>
-                </li>
-              );
-            })
-          }
+          {navItems.map((item) => {
+            const itemPath = item.href.replace(/\/$/, "");
+            const isActive = currentPath === itemPath;
+            return (
+              <li>
+                <a href={item.href} class:list={[{ active: isActive }]}>
+                  {item.label}
+                </a>
+              </li>
+            );
+          })}
         </ul>
         <div class="nav-footer">
           <a href={`${base}/`}>Graph Viewer</a>
@@ -160,14 +158,6 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
         letter-spacing: -0.02em;
       }
 
-      main :global(h3) {
-        font-size: 1rem;
-        font-weight: 600;
-        color: #ddd;
-        margin-top: 28px;
-        margin-bottom: 12px;
-      }
-
       main :global(p) {
         margin-bottom: 16px;
         color: #bbb;
@@ -233,14 +223,6 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
         color: #aaa;
       }
 
-      main :global(blockquote) {
-        border-left: 3px solid #333;
-        padding-left: 16px;
-        margin-bottom: 16px;
-        color: #888;
-        font-style: italic;
-      }
-
       main :global(strong) {
         color: #ddd;
         font-weight: 600;
@@ -253,12 +235,6 @@ const currentPath = Astro.url.pathname.replace(/\/$/, "") || `${base}/docs`;
 
       main :global(a:hover) {
         text-decoration: underline;
-      }
-
-      main :global(hr) {
-        border: none;
-        border-top: 1px solid #2a2a2a;
-        margin: 32px 0;
       }
 
       @media (max-width: 768px) {
