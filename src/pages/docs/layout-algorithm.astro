@@ -2,117 +2,14 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 ---
 
-<DocsLayout title="Layout Algorithm">
+<DocsLayout title="Layout">
   <p>
-    Layout is deterministic and runs once per scope. The stages are graph
-    preparation, layer assignment, layer ordering, coordinate assignment,
-    placement, and orthogonal routing.
-  </p>
-
-  <h2>Graph preparation</h2>
-  <p>
-    <code>buildGraphModel</code> validates the input, assigns nodes and edges to scopes,
-    infers port counts, and builds compact typed-array indexes for node lookup and
-    render counts. Parallel edges retain their input positions as stable indexes.
-  </p>
-
-  <h2>Layer assignment</h2>
-  <p>
-    <code>assignLayers</code> scans each scope's topological node order from the end.
-    It assigns each node its longest distance to a sink, then reverses the distances
-    so edges flow from lower layer numbers to higher layer numbers.
-  </p>
-
-  <h2>Layer ordering</h2>
-  <p>
-    <code>createWorkingLayerGraph</code> inserts one virtual vertex for every intermediate
-    layer crossed by a long edge. Virtual vertices participate in ordering and crossing
-    counts, then disappear when the final layer arrays are written back to original
-    node IDs. Port-aware ordering preserves the connection order needed by the endpoint
-    ports.<sup><a href="../references/#ref-1">[1]</a></sup>
+    Nodes are arranged in layers with fixed port order. Edges bend at right
+    angles; circles mark crossings. Expanding a compound lays out its child
+    graphs and resizes the surrounding diagram.
   </p>
   <p>
-    Eight iterations each perform a top-down and bottom-up median sort. Neighbor
-    positions are primary, port order is secondary, and stable input or edge
-    order breaks ties. A final adjacent-switch pass keeps a switch when the
-    affected bilayer's crossing count does not increase.
-  </p>
-
-  <h2>Coordinate assignment</h2>
-  <p>
-    <code>computeBrandesKopfCoordinates</code> runs four combinations of layer direction,
-    within-layer direction, and incoming or outgoing neighbor alignment. It performs
-    conflict marking, median alignment, block compaction, and class-shift accumulation.<sup
-      ><a href="../references/#ref-2">[2]</a></sup
-    >
-    Complete blocks are placed as units, and class shifts are accumulated in sink
-    order using the published correction.<sup
-      ><a href="../references/#ref-3">[3]</a></sup
-    >
-  </p>
-  <p>
-    The four assignments are normalized and combined by the middle-pair average.
-    The result is integer-valued; placement adds the gaps required by labels and
-    ports while preserving layer order.
-  </p>
-
-  <h2>Placement</h2>
-  <p>
-    <code>placeNodesOnGrid</code> assigns integer grid-unit rectangles. Node width
-    is the maximum of port demand, estimated label width, and the minimum node width.
-    Leaf nodes are three grid units high. Routing-area heights and vertical-channel
-    reserve depend on the layer and edge structure.
-    <code>GRID_UNIT = 12</code> pixels.
-  </p>
-  <p>
-    Expanded compound scopes are laid out bottom-up. Parent dimensions include
-    the child layouts, label bar, and inner gaps. Collapsed compounds use leaf
-    dimensions.
-  </p>
-
-  <h2>Orthogonal routing</h2>
-  <p>
-    Spaces between node layers contain horizontal tracks; gaps between node
-    columns contain vertical channels. Interval occupancy stores node
-    rectangles, track segments, port handles, and vertical reservations without
-    allocating one record per traversed grid cell. The pipe-and-track
-    arrangement follows the layered routing model in <sup
-      ><a href="../references/#ref-4">[4]</a></sup
-    >; the interval representation is specific to ArrowCrab.
-  </p>
-  <ul>
-    <li>
-      Tracks and port handles are assigned per pipe in anchor order. Handles on
-      one physical port form a bundle; overlap between distinct handles is a
-      cost.
-    </li>
-    <li>
-      Edges are emitted longest-span first. An adjacent-layer edge uses one
-      track and two turns. A longer edge uses source and target tracks joined by
-      one vertical channel and four turns.
-    </li>
-    <li>
-      Track and channel candidates minimize positive interval overlap and reject
-      node-interior collisions. Candidate order breaks ties.
-    </li>
-    <li>
-      The validation pass swaps adjacent tracks only when alternate horizontal
-      segments pass conflict checks and reduce the crossing-pair count. It then
-      stores any remaining crossings as marker points.
-    </li>
-    <li>
-      The router uses these fixed route shapes; it does not run Dijkstra or
-      visibility-graph/A* routing.
-    </li>
-  </ul>
-
-  <h2>Determinism and verification</h2>
-  <p>
-    Node IDs, ports, and input edge indexes provide stable tie breaks. The same
-    graph and code path produce the same layout, route geometry, and crossing
-    markers.
-    <code>npm run verify:layout</code> checks orthogonality, node-interior avoidance,
-    marker consistency, snapshot round trips, deterministic output, and seeded arbitrary-port
-    cases.
+    The same input and expansion state produce the same layout.{" "}
+    <a href="../references/">Algorithm references</a>.
   </p>
 </DocsLayout>

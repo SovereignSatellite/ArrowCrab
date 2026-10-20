@@ -2,8 +2,8 @@ import type { APIRoute, GetStaticPaths } from "astro";
 import {
   getExampleGraphDefinitions,
   type ExampleGraphDefinition,
-} from "../../lib/examples";
-import type { GraphData } from "../../lib/graph/types";
+} from "../../lib/examples.ts";
+import type { GraphData } from "../../lib/engine/graph/types.ts";
 
 interface ExampleEndpointProps {
   graph: GraphData;

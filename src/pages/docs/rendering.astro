@@ -2,100 +2,11 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 ---
 
-<DocsLayout title="Rendering">
+<DocsLayout title="Display">
   <p>
-    WebGL2 draws structural geometry when available. Canvas 2D draws text,
-    ports, hit regions, and the complete scene when WebGL2 is unavailable.
+    Zoom in to see labels, IDs, and ports; zoom out to simplify node details.
+    Compound toggles stay clickable. Geometry outside the highlighted selection
+    is dimmed.
   </p>
-
-  <h2>Coordinate system</h2>
-  <p>
-    Layout and occupancy use integer grid units. The renderer converts them to
-    pixels with <code>GRID_UNIT = 12</code>, then applies viewport translation
-    and scale. Packed route points use graph-pixel coordinates from the same
-    grid.
-  </p>
-
-  <h2>Scene state and snapshots</h2>
-  <p>
-    <code>GraphScene</code> holds the model, layout map, routing map, expansion state,
-    viewport, selection state, and frame-local hit regions. The worker serializes
-    node positions, layers, crossings, route offsets, route points, and route bounds.
-    The main thread restores the typed-array route data and indexes without rerunning
-    layout during drawing.
-  </p>
-
-  <h2>Exact tile queries</h2>
-  <p>
-    Each scope indexes exact node bounds, route bounds, and crossing points in a
-    persistent tile pyramid.<sup><a href="../references/#ref-5">[5]</a></sup>
-    Tile sizes are powers of two. A query selects a level from viewport scale, gathers
-    intersecting cells, and applies an exact bounds test before returning candidates.
-    Entries are replicated across levels; they are not aggregated or simplified.
-  </p>
-  <p>
-    Route points remain packed in typed arrays. Canvas rendering and hit testing
-    unpack visible routes into temporary point objects.
-  </p>
-
-  <h2>Level of detail</h2>
-  <table>
-    <thead
-      ><tr
-        ><th>Rendered node width</th><th>Canvas overlay</th><th
-          >Structural geometry</th
-        ></tr
-      ></thead
-    >
-    <tbody>
-      <tr
-        ><td><code>&lt; 2 px</code></td><td>No pixels; hit region may remain</td
-        ><td>Skipped</td></tr
-      >
-      <tr
-        ><td><code>2 px</code> to <code>&lt; 8 px</code></td><td
-          >Filled rectangle and compound marker</td
-        ><td>Rounded fill</td></tr
-      >
-      <tr
-        ><td><code>8 px</code> to <code>&lt; 40 px</code></td><td
-          >Rounded body and stroke</td
-        ><td>Rounded fill and outline</td></tr
-      >
-      <tr
-        ><td><code>&ge; 40 px</code></td><td
-          >Label, ID, ports, body, and compound toggle</td
-        ><td>Full structural body</td></tr
-      >
-    </tbody>
-  </table>
-  <p>
-    The thresholds are <code>LOD_DOT = 2</code>,
-    <code>LOD_SIMPLIFIED = 8</code>, and <code>LOD_FULL = 40</code>. Selection
-    changes alpha, not the thresholds; unrelated geometry uses
-    <code>0.15</code> alpha while a selection is active.
-  </p>
-  <p>
-    Node borders and graph edges use a <code>2 px</code> CSS stroke. WebGL2 represents
-    those strokes as filled geometry instead of relying on the platform's limited
-    line-width range, keeping them visible at high DPI.
-  </p>
-
-  <h2>Frame order</h2>
-  <ol>
-    <li>
-      The viewport becomes a graph-pixel visible rectangle. WebGL2 collects
-      visible structural fills, routes, outlines, arrowheads, and crossing
-      circles when available.
-    </li>
-    <li>
-      Canvas 2D draws routes when WebGL2 is absent, then draws visible nodes,
-      labels, ports, toggles, and compound frames. Hit-region arrays are rebuilt
-      for the frame.
-    </li>
-    <li>
-      Expanded child scopes render recursively with the child's local layout and
-      the parent's pixel offset.
-    </li>
-  </ol>
+  <p>WebGL2 is optional; Canvas 2D is the fallback.</p>
 </DocsLayout>

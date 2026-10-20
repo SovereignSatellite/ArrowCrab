@@ -2,67 +2,66 @@
 import DocsLayout from "../../layouts/DocsLayout.astro";
 ---
 
-<DocsLayout title="Interaction">
-  <h2>Viewport behavior</h2>
+<DocsLayout title="Controls">
+  <table>
+    <thead>
+      <tr>
+        <th>Action</th>
+        <th>Control</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td>Pan</td>
+        <td>Drag or arrow keys</td>
+      </tr>
+      <tr>
+        <td>Zoom</td>
+        <td>
+          Scroll, pinch, <code>+</code>/<code>=</code>, or <code>-</code>{" "}
+          (10%–500%)
+        </td>
+      </tr>
+      <tr>
+        <td>Fit graph</td>
+        <td>
+          <code>0</code> or <strong>Fit</strong>
+        </td>
+      </tr>
+      <tr>
+        <td>Expand/collapse compound</td>
+        <td>
+          Click a collapsed body or <code>[+]</code>/<code>[−]</code>; at low
+          zoom, click the expanded body
+        </td>
+      </tr>
+      <tr>
+        <td>Multiple selection</td>
+        <td>Ctrl-click or Cmd-click; combines highlights</td>
+      </tr>
+      <tr>
+        <td>Clear selection</td>
+        <td>Click empty space</td>
+      </tr>
+      <tr>
+        <td>Load another graph</td>
+        <td>
+          <strong>Load JSON</strong>
+        </td>
+      </tr>
+      <tr>
+        <td>Stop loading</td>
+        <td>
+          <strong>Cancel loading</strong>
+        </td>
+      </tr>
+    </tbody>
+  </table>
   <p>
-    Wheel and pinch zoom keep the point under the cursor or pinch midpoint
-    fixed. Zoom is clamped to 10%–500%. Movement of at most five pixels between
-    pointer down and up is a click; larger movement is a drag. One
-    <code>AbortController</code>-managed listener set attaches to the canvas and
-    window; <code>destroy()</code> aborts it when the scene is replaced.
-  </p>
-
-  <h2>Expansion</h2>
-  <p>
-    Clicking a compound toggle changes the expanded-node set, computes child
-    layouts when needed, recomputes the layout chain and all routing, clears the
-    cached graph-wide adjacency, and renders the scene again.
-  </p>
-  <p>
-    A collapsed compound uses its full bounds as the toggle target. An expanded
-    compound uses its full bounds below <code>40 px</code> screen width and a
-    <code>28 × 18 px</code> top-left target at full detail. The compact marker remains
-    visible between <code>2 px</code> and <code>40 px</code>; below
-    <code>2 px</code>, a queried node can still have a hit region.
-  </p>
-
-  <h2>Hit testing</h2>
-  <ol>
-    <li><strong>Toggle regions</strong> are checked first.</li>
-    <li><strong>Leaf-node regions</strong> are checked next.</li>
-    <li>
-      <strong>Edge regions</strong> use an 8-pixel screen-distance tolerance.
-    </li>
-    <li>
-      <strong>Expanded-node regions</strong> are checked after child nodes and edges.
-    </li>
-    <li>Empty space clears the selection.</li>
-  </ol>
-  <p>
-    Hit regions are rebuilt from visible geometry on each render. Expanded
-    containers are checked after edges so routes and child nodes remain
-    clickable.
-  </p>
-
-  <h2>Causal selection</h2>
-  <p>
-    Node selection runs breadth-first searches over cached global successor and
-    predecessor adjacency. The highlighted nodes are the selected nodes, their
-    reachable descendants, and their reachable ancestors. Edges are highlighted
-    when both endpoints are reachable. An explicitly selected edge highlights
-    the edge and both endpoints.
-  </p>
-  <p>
-    When a selection exists, geometry outside the highlighted sets uses 15%
-    alpha. Expansion invalidates the adjacency cache because it changes the
-    active scope structure.
-  </p>
-
-  <h2>Worker loading</h2>
-  <p>
-    The worker reports <code>validating</code>, <code>layout</code>, and
-    <code>routing</code> phases, then sends graph data and a serialized snapshot.
-    A cancellation changes the active request identity. The worker checks that identity
-    after validation and layout; the main thread ignores stale results.
+    Zoom stays anchored at the cursor or pinch midpoint. Click a node outside
+    its compound toggle to highlight its ancestors, descendants, and edges
+    between them, including collapsed scopes. Click an edge to highlight it and
+    its endpoints. Other geometry dims. If loading fails, the picker shows an
+    error.
   </p>
 </DocsLayout>

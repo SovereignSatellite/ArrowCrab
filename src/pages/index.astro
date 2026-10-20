@@ -1,5 +1,5 @@
 ---
-import { getExampleGraphDefinitions } from "../lib/examples";
+import { getExampleGraphDefinitions } from "../lib/examples.ts";
 
 const base = import.meta.env.BASE_URL;
 const examples = getExampleGraphDefinitions();
@@ -24,22 +24,22 @@ const examples = getExampleGraphDefinitions();
     </a>
     <div id="drop-zone" role="region" aria-label="Graph input">
       <div id="drop-content">
-        <button id="browse-btn" type="button">Choose JSON file</button>
+        <button id="browse-btn" type="button">
+          Choose JSON file
+        </button>
         <div id="examples">
           <div id="example-list">
-            {
-              examples.map((example) => (
-                <button
-                  type="button"
-                  class="example-btn"
-                  data-example-url={`${base}/examples/${example.slug}.json`}
-                  data-example-name={example.name}
-                >
-                  <span>{example.name}</span>
-                  <small>{example.description}</small>
-                </button>
-              ))
-            }
+            {examples.map((example) => (
+              <button
+                type="button"
+                class="example-btn"
+                data-example-url={`${base}/examples/${example.slug}.json`}
+                data-example-name={example.name}
+              >
+                <span>{example.name}</span>
+                <small>{example.description}</small>
+              </button>
+            ))}
           </div>
         </div>
       </div>
@@ -56,7 +56,9 @@ const examples = getExampleGraphDefinitions();
     >
       <p>Your browser does not support the graph canvas.</p>
     </canvas>
-    <button id="load-btn" class="hidden">Load JSON</button>
+    <button id="load-btn" class="hidden">
+      Load JSON
+    </button>
     <p id="status" role="status" aria-live="polite"></p>
     <div id="accessible-graph" class="visually-hidden" aria-live="polite"></div>
 
@@ -66,8 +68,10 @@ const examples = getExampleGraphDefinitions();
           id="zoom-out-btn"
           class="control-btn"
           aria-label="Zoom out (minus key)"
-          title="Zoom out (−)">−</button
+          title="Zoom out (−)"
         >
+          −
+        </button>
         <input
           type="range"
           id="zoom-slider"
@@ -80,34 +84,44 @@ const examples = getExampleGraphDefinitions();
           id="zoom-in-btn"
           class="control-btn"
           aria-label="Zoom in (plus key)"
-          title="Zoom in (+)">+</button
+          title="Zoom in (+)"
         >
+          +
+        </button>
         <span id="zoom-label">100%</span>
         <div class="control-divider"></div>
         <button
           id="fit-btn"
           class="control-btn fit-btn"
           aria-label="Fit graph to screen (0 key)"
-          title="Fit to screen (0)">Fit</button
+          title="Fit to screen (0)"
         >
+          Fit
+        </button>
       </div>
     </div>
 
     <script>
-      import { buildGraphModel, type GraphData } from "../lib/graph";
-      import type { LayoutSnapshot } from "../lib/scene";
-      import type { GraphScene } from "../lib/rendering";
       import {
-        createScene,
+        buildGraphModel,
+        type GraphData,
+      } from "../lib/engine/graph/index.ts";
+      import type { LayoutSnapshot } from "../lib/diagram/index.ts";
+      import type {
+        LayoutRequest,
+        LayoutResponse,
+      } from "../lib/worker/types.ts";
+      import {
+        createViewer,
         centerViewport,
-        render,
+        renderViewer,
         handleCanvasClick,
-        createWebGLRenderer,
-      } from "../lib/rendering";
+      } from "../lib/viewer/index.ts";
+      import { createWebGLRenderer } from "../lib/drawing/webgl-renderer.ts";
       import {
         setupViewport,
         type ViewportControls,
-      } from "../lib/interaction/viewport";
+      } from "../lib/viewer/viewport.ts";
 
       const dropZone = document.getElementById("drop-zone")!;
       const browseButton = document.getElementById(
@@ -137,181 +151,227 @@ const examples = getExampleGraphDefinitions();
       const fitButton = document.getElementById("fit-btn")!;
       const status = document.getElementById("status")!;
       const accessibleGraph = document.getElementById("accessible-graph")!;
-      const layoutWorker = new Worker(
-        new URL("../lib/worker/layout-worker.ts", import.meta.url),
-        { type: "module" },
-      );
+      interface GraphLoad {
+        controller: AbortController;
+        worker: Worker | null;
+      }
 
-      let activeScene: GraphScene | null = null;
       let viewportControls: ViewportControls | null = null;
-      let nextRequestId = 0;
-      let currentLoad: { id: number } | null = null;
+      let currentLoad: GraphLoad | null = null;
+      let pendingRenderFrame: number | null = null;
 
-      function resizeCanvas(): void {
-        const pixelRatio = window.devicePixelRatio || 1;
-        canvas.width = canvas.clientWidth * pixelRatio;
-        canvas.height = canvas.clientHeight * pixelRatio;
-        webglRenderer?.resize(pixelRatio);
-        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
-        if (activeScene) {
-          centerViewport(activeScene);
-          render(activeScene);
-          updateZoomDisplay();
+      function cancelScheduledRender(): void {
+        if (pendingRenderFrame !== null) {
+          cancelAnimationFrame(pendingRenderFrame);
+          pendingRenderFrame = null;
         }
       }
 
-      function updateZoomDisplay(): void {
-        if (!viewportControls) {
-          return;
-        }
-        const percent = viewportControls.getZoomPercent();
-        zoomSlider.value = String(percent);
-        zoomLabel.textContent = `${percent}%`;
+      function resizeCanvas(): void {
+        const pixelRatio = window.devicePixelRatio;
+        canvas.width = canvas.clientWidth * pixelRatio;
+        canvas.height = canvas.clientHeight * pixelRatio;
+        webglRenderer?.resize(
+          canvas.clientWidth,
+          canvas.clientHeight,
+          pixelRatio,
+        );
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
       }
 
       function showGraph(data: GraphData, snapshot: LayoutSnapshot): void {
         const model = buildGraphModel(data);
+        const scene = createViewer(context, model, snapshot, webglRenderer);
         dropZone.removeAttribute("aria-busy");
         dropZone.classList.add("hidden");
         webglCanvas.classList.remove("hidden");
         canvas.classList.remove("hidden");
         loadButton.classList.remove("hidden");
+        loadButton.textContent = "Load JSON";
         controlsPanel.classList.remove("hidden");
         loadButton.focus({ preventScroll: true });
         status.textContent = "";
         accessibleGraph.textContent =
           `${model.indexed.nodeIds.length} nodes and ` +
-          `${model.indexed.edgeSourceIndices.length} edges loaded. ` +
+          `${model.indexed.edgeCount} edges loaded. ` +
           "Use the canvas controls to inspect the graph; node and edge " +
           "selection is available by clicking the drawing.";
 
-        if (viewportControls) viewportControls.destroy();
-        activeScene = createScene(context, model, snapshot, webglRenderer);
+        viewportControls?.destroy();
+        cancelScheduledRender();
         resizeCanvas();
 
-        let renderPending = false;
         function scheduleRender(): void {
-          if (!renderPending) {
-            renderPending = true;
-            requestAnimationFrame(() => {
-              renderPending = false;
-              if (activeScene) {
-                render(activeScene);
-              }
+          if (pendingRenderFrame === null) {
+            pendingRenderFrame = requestAnimationFrame(() => {
+              pendingRenderFrame = null;
+              renderViewer(scene);
             });
           }
         }
 
-        viewportControls = setupViewport(canvas, activeScene.viewport, {
+        viewportControls = setupViewport(canvas, scene.viewport, {
           onRender: scheduleRender,
           onClick: (canvasX, canvasY, ctrlKey) => {
-            if (activeScene) {
-              handleCanvasClick(activeScene, canvasX, canvasY, ctrlKey);
-            }
+            handleCanvasClick(scene, canvasX, canvasY, ctrlKey);
           },
           onZoomChange: (percent) => {
             zoomSlider.value = String(percent);
             zoomLabel.textContent = `${percent}%`;
           },
           onFitToScreen: () => {
-            if (activeScene) {
-              centerViewport(activeScene);
-              render(activeScene);
-            }
+            centerViewport(scene);
+            renderViewer(scene);
           },
         });
 
-        updateZoomDisplay();
+        viewportControls.fitToScreen();
       }
 
-      function setLoadingControlsDisabled(disabled: boolean): void {
-        browseButton.disabled = disabled;
+      function disableLoadingControls(): void {
+        browseButton.disabled = true;
         exampleButtons.forEach((exampleButton) => {
-          exampleButton.disabled = disabled;
+          exampleButton.disabled = true;
         });
       }
 
-      function startLoad(
+      function enableLoadingControls(): void {
+        browseButton.disabled = false;
+        exampleButtons.forEach((exampleButton) => {
+          exampleButton.disabled = false;
+        });
+      }
+
+      function cancelLoad(): void {
+        currentLoad?.controller.abort();
+        currentLoad?.worker?.terminate();
+        currentLoad = null;
+      }
+
+      function showPicker(): void {
+        cancelLoad();
+        canvas.classList.add("hidden");
+        webglCanvas.classList.add("hidden");
+        loadButton.classList.add("hidden");
+        controlsPanel.classList.add("hidden");
+        dropZone.classList.remove("hidden");
+        fileInput.value = "";
+        viewportControls?.destroy();
+        viewportControls = null;
+        cancelScheduledRender();
+        dropZone.removeAttribute("aria-busy");
+        enableLoadingControls();
+        status.textContent = "";
+        accessibleGraph.textContent = "";
+        browseButton.focus({ preventScroll: true });
+      }
+
+      function failLoad(message: string): void {
+        showPicker();
+        status.textContent = message;
+      }
+
+      function receiveLayout(load: GraphLoad, message: LayoutResponse): void {
+        if (currentLoad !== load) {
+          return;
+        }
+        switch (message.type) {
+          case "progress":
+            status.textContent = `${message.phase}…`;
+            return;
+          case "error":
+            failLoad(message.message);
+            return;
+          case "ready":
+            cancelLoad();
+            showGraph(message.graphData, message.snapshot);
+            return;
+        }
+      }
+
+      function startLayoutWorker(load: GraphLoad, json: string): void {
+        const worker = new Worker(
+          new URL("../lib/worker/layout-worker.ts", import.meta.url),
+          { type: "module" },
+        );
+        load.worker = worker;
+        worker.addEventListener(
+          "message",
+          (event: MessageEvent<LayoutResponse>) => {
+            try {
+              receiveLayout(load, event.data);
+            } catch (error) {
+              failLoad(
+                error instanceof Error
+                  ? error.message
+                  : "Unable to render graph.",
+              );
+            }
+          },
+        );
+        worker.addEventListener("error", (event) => {
+          event.preventDefault();
+          if (currentLoad === load) {
+            failLoad("Unable to run the layout worker.");
+          }
+        });
+        worker.addEventListener("messageerror", () => {
+          if (currentLoad === load) {
+            failLoad("Unable to receive the graph layout.");
+          }
+        });
+        const request: LayoutRequest = { json };
+        worker.postMessage(request);
+      }
+
+      async function startLoad(
         source: string,
-        readJson: () => Promise<string>,
-      ): void {
-        const load = { id: ++nextRequestId };
+        readJson: (signal: AbortSignal) => Promise<string>,
+      ): Promise<void> {
+        cancelLoad();
+        const load: GraphLoad = {
+          controller: new AbortController(),
+          worker: null,
+        };
         currentLoad = load;
         dropZone.setAttribute("aria-busy", "true");
-        setLoadingControlsDisabled(true);
+        disableLoadingControls();
+        loadButton.textContent = "Cancel loading";
+        loadButton.classList.remove("hidden");
         status.textContent = `Loading ${source}…`;
-        readJson()
-          .then((json) => {
-            if (currentLoad !== load) return;
-            layoutWorker.postMessage({
-              type: "layout",
-              requestId: load.id,
-              json,
-            });
-          })
-          .catch((error: unknown) => {
-            if (currentLoad !== load) return;
-            currentLoad = null;
-            dropZone.removeAttribute("aria-busy");
-            setLoadingControlsDisabled(false);
-            status.textContent =
-              error instanceof Error
-                ? error.message
-                : `Unable to load ${source}.`;
-          });
+        try {
+          const json = await readJson(load.controller.signal);
+          if (currentLoad !== load) {
+            return;
+          }
+          startLayoutWorker(load, json);
+        } catch (error) {
+          if (currentLoad !== load) {
+            return;
+          }
+          failLoad(
+            error instanceof Error
+              ? error.message
+              : `Unable to load ${source}.`,
+          );
+        }
       }
 
       function handleFile(file: File): void {
-        startLoad(file.name || "graph file", () => file.text());
+        void startLoad(file.name, () => file.text());
       }
 
       function handleExample(button: HTMLButtonElement): void {
-        const name = button.dataset.exampleName ?? "example graph";
-        const url = button.dataset.exampleUrl;
-        if (!url) return;
-        startLoad(name, () =>
-          fetch(url).then((response) => {
-            if (!response.ok) throw new Error(`Unable to load ${name}.`);
-            return response.text();
-          }),
-        );
-      }
-
-      layoutWorker.addEventListener("message", (event) => {
-        const message = event.data as {
-          type: string;
-          requestId: number;
-          phase?: string;
-          message?: string;
-          graphData?: GraphData;
-          snapshot?: LayoutSnapshot;
-        };
-        if (!currentLoad || message.requestId !== currentLoad.id) return;
-        if (message.type === "progress") {
-          status.textContent = `${message.phase ?? "Working"}…`;
-        } else if (message.type === "error") {
-          currentLoad = null;
-          dropZone.removeAttribute("aria-busy");
-          setLoadingControlsDisabled(false);
-          status.textContent = message.message ?? "Unable to load graph.";
-        } else if (
-          message.type === "ready" &&
-          message.graphData &&
-          message.snapshot
-        ) {
-          currentLoad = null;
-          try {
-            showGraph(message.graphData, message.snapshot);
-          } catch (error) {
-            dropZone.removeAttribute("aria-busy");
-            setLoadingControlsDisabled(false);
-            status.textContent =
-              error instanceof Error
-                ? error.message
-                : "Unable to render graph.";
+        const name = button.dataset.exampleName!;
+        const url = button.dataset.exampleUrl!;
+        void startLoad(name, async (signal) => {
+          const response = await fetch(url, { signal });
+          if (!response.ok) {
+            throw new Error(`Unable to load ${name}.`);
           }
-        }
-      });
+          return response.text();
+        });
+      }
 
       browseButton.addEventListener("click", () => fileInput.click());
       exampleButtons.forEach((button) => {
@@ -353,32 +413,13 @@ const examples = getExampleGraphDefinitions();
         viewportControls?.setZoomPercent(Number(zoomSlider.value));
       });
 
-      loadButton.addEventListener("click", () => {
-        canvas.classList.add("hidden");
-        webglCanvas.classList.add("hidden");
-        loadButton.classList.add("hidden");
-        controlsPanel.classList.add("hidden");
-        dropZone.classList.remove("hidden");
-        fileInput.value = "";
-        viewportControls?.destroy();
-        viewportControls = null;
-        activeScene = null;
-        if (currentLoad) {
-          layoutWorker.postMessage({
-            type: "cancel",
-            requestId: currentLoad.id,
-          });
-          currentLoad = null;
-        }
-        dropZone.removeAttribute("aria-busy");
-        setLoadingControlsDisabled(false);
-        status.textContent = "";
-        accessibleGraph.textContent = "";
-        browseButton.focus({ preventScroll: true });
-      });
+      loadButton.addEventListener("click", showPicker);
 
-      window.addEventListener("resize", resizeCanvas);
-      window.addEventListener("beforeunload", () => layoutWorker.terminate());
+      window.addEventListener("resize", () => {
+        resizeCanvas();
+        viewportControls?.fitToScreen();
+      });
+      window.addEventListener("beforeunload", cancelLoad);
       resizeCanvas();
     </script>
     <style>
@@ -532,6 +573,7 @@ const examples = getExampleGraphDefinitions();
         position: absolute;
         inset: 0;
         z-index: 1;
+        touch-action: none;
       }
 
       #graph-gl-canvas {
@@ -541,14 +583,6 @@ const examples = getExampleGraphDefinitions();
         position: absolute;
         inset: 0;
         z-index: 0;
-      }
-
-      #graph-gl-canvas.hidden {
-        display: none;
-      }
-
-      #graph-canvas.hidden {
-        display: none;
       }
 
       #load-btn {

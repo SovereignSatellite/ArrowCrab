@@ -3,7 +3,7 @@ import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
 
 const { getExampleGraphDefinitions } = await import("../src/lib/examples.ts");
-const { buildGraphModel } = await import("../src/lib/graph/index.ts");
+const { buildGraphModel } = await import("../src/lib/engine/graph/index.ts");
 
 const outputDirectory = path.join(process.cwd(), "dist", "examples");
 const definitions = getExampleGraphDefinitions();
